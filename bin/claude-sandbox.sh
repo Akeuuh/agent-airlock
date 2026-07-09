@@ -36,6 +36,13 @@ log() { printf '\033[1;34m[claude-sandbox]\033[0m %s\n' "$*" >&2; }
 log "pull des images…"
 podman pull -q "$CLAUDE_IMAGE" >/dev/null 2>&1 || log "WARN: pull claude KO (offline ?), on garde le cache local"
 
+# ─── 1b. Resync horloge VM (macOS) ───────────────────────────────────────────
+# podman machine dérive après une veille du Mac (System clock synchronized: no).
+# Une horloge décalée fait rejeter le token OAuth fraîchement émis (iat dans le
+# futur) → logout immédiat de Claude. On recale la VM sur l'heure de l'hôte.
+podman machine ssh "sudo date -u -s '@$(date -u +%s)'" >/dev/null 2>&1 \
+  && log "horloge VM resynchronisée" || true
+
 # ─── 2. Réseau interne ────────────────────────────────────────────────────────
 # --internal    = aucune route vers internet (Claude ne peut pas exfiltrer en direct).
 # --disable-dns = pas d'aardvark interne (sinon il pollue le resolv.conf des sidecars

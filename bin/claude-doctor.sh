@@ -22,6 +22,13 @@ probe() { podman run --rm --network "$NET" --entrypoint "" "$CLAUDE_IMAGE" bash 
 head "1. Podman"
 podman machine inspect --format '{{.State}}' 2>/dev/null | grep -q running \
   && ok "machine podman démarrée" || ko "machine podman non démarrée (podman machine start)"
+# Dérive d'horloge = tokens OAuth rejetés (logout immédiat)
+vm=$(podman machine ssh 'date -u +%s' 2>/dev/null); host=$(date -u +%s)
+if [ -n "$vm" ]; then
+  skew=$(( vm > host ? vm - host : host - vm ))
+  [ "$skew" -le 120 ] && ok "horloge VM synchro (écart ${skew}s)" \
+    || ko "horloge VM décalée de ${skew}s (relance le launcher pour resync, sinon logout OAuth)"
+fi
 
 head "2. Images"
 for img in claude-sandbox mcp-remote egress-proxy; do

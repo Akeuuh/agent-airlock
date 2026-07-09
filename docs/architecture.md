@@ -172,6 +172,12 @@ Framework). Deux conséquences :
   **partagés** (par défaut `$HOME`). Un repo sous `/tmp` échoue avec `Error: statfs … no
   such file or directory`. Les projets doivent vivre sous `$HOME` (ou ajouter le partage
   via `podman machine set --volume`).
+- **Dérive d'horloge → logout OAuth** (validé, important) : la VM podman se désynchronise
+  (surtout après une veille du Mac ; `timedatectl` montre `System clock synchronized: no`).
+  Une horloge décalée fait rejeter le token OAuth fraîchement émis (`iat` dans le futur)
+  → **Claude se délogue immédiatement après le login**. Le launcher recale donc la VM sur
+  l'heure de l'hôte à chaque lancement :
+  `podman machine ssh "sudo date -u -s '@$(date -u +%s)'"`. Le `doctor` vérifie l'écart.
 
 ---
 
