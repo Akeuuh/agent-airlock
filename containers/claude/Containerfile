@@ -7,8 +7,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
       socat git curl ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# Claude Code
-# TODO: vérifier le nom/canal exact du package publié par Anthropic
+# Claude Code (package officiel Anthropic)
 RUN npm install -g @anthropic-ai/claude-code
 
 # Entrypoint (copié en root avant de dropper les privilèges)
