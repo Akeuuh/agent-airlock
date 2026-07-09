@@ -5,6 +5,7 @@ sandbox **Podman**, sans exposer la machine à l'exfiltration de secrets ni à l
 de données.
 
 > 📐 Modèle de menace complet + décisions d'archi : [`docs/architecture.md`](docs/architecture.md)
+> 📚 Guides (ajouter un MCP / skill / commande, allowlist, build) : [`docs/`](docs/README.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
 ## Sommaire
 - [Pourquoi](#pourquoi)
