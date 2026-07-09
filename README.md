@@ -167,7 +167,7 @@ claude          # → login abonnement au 1er run (flow « coller le code »)
 claude-doctor          # ou: ~/Dev/IA/claude-isolation/bin/claude-doctor.sh
 ```
 
-Contrôle en un coup (15 checks) : machine podman, images, réseau `internal=true dns=false`,
+Contrôle en un coup (16 checks) : machine podman, **horloge VM** (dérive → logout OAuth), images, réseau `internal=true dns=false`,
 sidecars, **blocage internet direct**, **allowlist egress** (anthropic/claude.ai/platform
 autorisés, reste refusé), tunnel MCP, et **persistance du login**.
 

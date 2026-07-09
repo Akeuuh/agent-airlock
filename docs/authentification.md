@@ -42,7 +42,7 @@ podman machine ssh "sudo date -u -s '@$(date -u +%s)'"
 ```
 
 Si tu es déconnecté sans raison juste après un réveil du Mac, c'est ce symptôme : relance
-`claude` (le resync s'exécute au démarrage).
+`claude` (le resync s'exécute au démarrage). `claude-doctor` signale un écart d'horloge > 5 s.
 
 ## Volumes & données
 

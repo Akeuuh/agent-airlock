@@ -136,8 +136,9 @@ Framework). Deux conséquences :
   Une horloge décalée fait rejeter le token OAuth fraîchement émis (`iat` dans le futur)
   → **Claude se délogue immédiatement après le login**. Le launcher recale donc la VM sur
   l'heure de l'hôte à chaque lancement :
-  `podman machine ssh "sudo date -u -s '@$(date -u +%s)'"` (détaillé dans
-  [`authentification.md`](authentification.md) et [`troubleshooting.md`](troubleshooting.md)).
+  `podman machine ssh "sudo date -u -s '@$(date -u +%s)'"` ; le `claude-doctor` signale tout
+  écart résiduel (détaillé dans [`authentification.md`](authentification.md) et
+  [`troubleshooting.md`](troubleshooting.md)).
 
 ---
 

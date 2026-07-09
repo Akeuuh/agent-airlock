@@ -26,7 +26,7 @@ podman machine inspect --format '{{.State}}' 2>/dev/null | grep -q running \
 vm=$(podman machine ssh 'date -u +%s' 2>/dev/null); host=$(date -u +%s)
 if [ -n "$vm" ]; then
   skew=$(( vm > host ? vm - host : host - vm ))
-  [ "$skew" -le 120 ] && ok "horloge VM synchro (écart ${skew}s)" \
+  [ "$skew" -le 5 ] && ok "horloge VM synchro (écart ${skew}s)" \
     || ko "horloge VM décalée de ${skew}s (relance le launcher pour resync, sinon logout OAuth)"
 fi
 
