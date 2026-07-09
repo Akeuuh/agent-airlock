@@ -24,7 +24,8 @@ voit jamais les credentials OAuth. Sa seule sortie internet passe par le proxy C
 ```
 claude-isolation/
 ├── bin/
-│   └── claude-sandbox.sh          # launcher (alias `claude`) : pull + sidecars + run -it
+│   ├── claude-sandbox.sh          # launcher (alias `claude`) : pull + sidecars + run -it
+│   └── claude-doctor.sh           # diagnostic complet du sandbox
 ├── containers/
 │   ├── claude/
 │   │   ├── Containerfile           # image A : Claude Code + mise + socat
@@ -55,6 +56,17 @@ Puis, dans n'importe quel projet :
 cd ~/code/mon-projet
 claude          # pull l'image à jour, monte le code, lance Claude sandboxé
 ```
+
+## Vérifier la config
+
+```sh
+~/Dev/IA/claude-isolation/bin/claude-doctor.sh
+```
+
+Contrôle en un coup : machine podman, images, réseau interne (isolation), sidecars,
+blocage internet direct, allowlist egress, tunnel MCP, et persistance du login.
+
+Depuis une session Claude en cours : `/status`, `/mcp`, `/doctor`.
 
 ## Statut
 
