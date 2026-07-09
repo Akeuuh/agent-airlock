@@ -28,6 +28,7 @@ EGRESS_CTR="egress-proxy"
 PROXY_PORT=3128
 OAUTH_CALLBACK_PORT="${OAUTH_CALLBACK_PORT:-9910}"   # publié VM→hôte pour le flow OAuth
 MCP_AUTH_VOL="claude-mcp-auth"   # volume des tokens OAuth — monté SEULEMENT dans B
+CLAUDE_HOME_VOL="claude-home"    # volume ~/.claude — persiste le login abonnement
 
 log() { printf '\033[1;34m[claude-sandbox]\033[0m %s\n' "$*" >&2; }
 
@@ -95,6 +96,7 @@ exec podman run -it --rm \
   --network "$NET" \
   --hostname claude-sandbox \
   -v "$PWD:/workspace:Z" \
+  -v "${CLAUDE_HOME_VOL}:/home/claude/.claude:Z" \
   "${GIT_MOUNTS[@]}" \
   -w /workspace \
   -e HTTP_PROXY="http://${EGRESS_IP}:${PROXY_PORT}" \
