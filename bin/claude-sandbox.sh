@@ -8,6 +8,10 @@
 
 set -euo pipefail
 
+# Racine du repo (robuste aux symlinks) — le script retrouve ses fichiers voisins.
+SCRIPT_PATH="$(cd "$(dirname "$(readlink -f "$0" 2>/dev/null || echo "$0")")" && pwd)"
+REPO_DIR="$(cd "$SCRIPT_PATH/.." && pwd)"
+
 # ─── Config (surchargée par l'environnement) ──────────────────────────────────
 REGISTRY="${CLAUDE_SANDBOX_REGISTRY:-localhost}"          # TODO: registry d'équipe réel
 CLAUDE_IMAGE="${CLAUDE_SANDBOX_IMAGE:-${REGISTRY}/claude-sandbox:latest}"
@@ -45,7 +49,7 @@ ensure_egress() {
   # Deux pattes : claude-net (interne, vu par Claude) + NET_EXT (internet, allowlisté).
   podman run -d --name "$EGRESS_CTR" \
     --network "$NET" \
-    -v "$(dirname "$0")/../egress/squid.conf:/etc/squid/squid.conf:ro,Z" \
+    -v "$REPO_DIR/egress/squid.conf:/etc/squid/squid.conf:ro,Z" \
     "$EGRESS_IMAGE" >/dev/null
   podman network connect "$NET_EXT" "$EGRESS_CTR" >/dev/null 2>&1 || true
 }
@@ -59,7 +63,7 @@ ensure_mcp() {
     --network "$NET" \
     -p "127.0.0.1:${OAUTH_CALLBACK_PORT}:${OAUTH_CALLBACK_PORT}" \
     -v "${MCP_AUTH_VOL}:/home/node/.mcp-auth:Z" \
-    -v "$(dirname "$0")/../containers/mcp-remote/servers.d:/servers.d:ro,Z" \
+    -v "$REPO_DIR/containers/mcp-remote/servers.d:/servers.d:ro,Z" \
     "$MCP_IMAGE" >/dev/null
   podman network connect "$NET_EXT" "$MCP_CTR" >/dev/null 2>&1 || true
 }
