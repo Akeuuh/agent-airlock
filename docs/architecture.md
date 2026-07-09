@@ -4,7 +4,10 @@
 > sans exposer l'équipe à l'exfiltration de secrets ni à la destruction de données.
 > Inspiré d'un retour d'expérience (staff eng, éditeur de gestionnaire de mots de passe).
 
-Statut : **architecture cible** — pas encore implémentée. Runtime retenu : **Podman**.
+Statut : **implémenté et validé** (Podman + macOS `applehv`). Ce document garde le
+*pourquoi* (modèle de menace, décisions) ; le *comment* opérationnel est dans les guides
+[`docs/`](README.md) — notamment [`reseau.md`](reseau.md), [`authentification.md`](authentification.md),
+[`acces-web.md`](acces-web.md).
 
 ---
 
@@ -41,39 +44,8 @@ On ne fait **pas** confiance à l'agent. On le met dans une boîte d'où il ne p
 
 ## 2. Vue d'ensemble
 
-```
-                    HÔTE (Mac)
- ┌──────────────────────────────────────────────────────────┐
- │  alias `claude`  →  script claude-sandbox.sh              │
- │     • podman pull (image commune à jour)                  │
- │     • assure les sidecars (mcp-remote, proxy egress) up    │
- │     • podman run -it (reste dans le terminal)             │
- │                                                            │
- │   ~/code/mon-projet ──(bind mount)──┐                     │
- │   volume creds OAuth (~/.mcp-auth) ─┼──┐                  │
- └───────────────────────────────┬─────┼──┼──────────────────┘
-                                 │     │  │ port callback OAuth
-   RÉSEAU INTERNE podman         │     │  │ publié VM→hôte
-   `claude-net` (--internal,     │     ▼  │
-    PAS de route internet)  ┌─────┼────────┼──────────────────┐
-   ┌────────────────────────┤  A : claude  │  /workspace (code)│
-   │  • Claude Code + skills │              │                  │
-   │  • mise (outils par repo)              │                  │
-   │  • MCP déclaré = socat ──► TCP:10.89.0.11:9000            │
-   │  • pas d'internet direct ; sortie via HTTP_PROXY ─┐       │
-   └──────────────────┬─────────────────────┼──────────┼──────┘
-         tunnel TCP   │        callback OAuth │          │ proxifié
-                      ▼                      │          ▼
-   ┌──────────────────────────────────┐   ┌──┴──────────────────────┐
-   │ B : mcp-remote (CREDS ICI)       │   │ C : proxy egress (squid)│
-   │ socat TCP-LISTEN:9000,fork ─►    │   │ allowlist: api.anthropic│
-   │   EXEC mcp-remote https://...    │   │  (+ registries au build)│
-   │ • OAuth + stockage tokens        │   └───────────┬─────────────┘
-   │ • MCP-HTTP ↔ MCP-STDIO (no auth) │               │
-   │ • internet OK (serveurs MCP)     │──── internet ──┤
-   └──────────────────────────────────┘               ▼
-                                                  api.anthropic.com
-```
+> 🗺️ Schéma à jour (mermaid) : voir [**Architecture** dans le README](../README.md#architecture).
+> Le câblage réseau + tunnel socat est détaillé dans [`reseau.md`](reseau.md).
 
 **Idée clé du tunnel** : Claude croit parler à un MCP stdio local. En réalité `socat`
 transforme ce stdio en TCP, traverse le **réseau interne podman** (`claude-net`, sans
@@ -83,7 +55,7 @@ HTTP distant. **Les tokens restent dans le conteneur B, jamais visibles par Clau
 > ⚠️ **Pas de pod partagé.** Mettre A et B dans un même pod Podman partagerait la
 > *network namespace* (même `localhost`, même connectivité) → Claude hériterait de
 > l'accès internet du sidecar et contournerait l'allowlist. On utilise donc des
-> **conteneurs séparés** sur un réseau interne, adressés par **nom** (`mcp-remote`), et
+> **conteneurs séparés** sur un réseau interne, adressés par **IP statique** (`10.89.0.11`), et
 > la seule sortie internet de Claude passe par le proxy egress (conteneur C).
 
 ---
@@ -116,23 +88,10 @@ HTTP distant. **Les tokens restent dans le conteneur B, jamais visibles par Clau
   détruire (jamais de write sur la prod AWS ; read-only quand c'est possible).
 - Isolation renforcée possible : **un conteneur B par MCP** pour cloisonner davantage.
 
-Côté Claude, la config MCP pointe simplement vers socat :
-```json
-{ "mcpServers": {
-    "exemple": { "command": "socat", "args": ["STDIO", "TCP:10.89.0.11:9000"] }
-}}
-```
-(`10.89.0.11` = **IP statique** du conteneur B sur `claude-net`. On adresse par IP et non
-par nom car `claude-net` est créé **sans DNS** — voir la note ci-dessous.)
-
-> ⚠️ **Leçon de mise en œuvre (validée) — DNS.** Si `claude-net` a le DNS activé
-> (aardvark), les sidecars *multi-homed* (interne + externe) héritent du resolver interne
-> en tête de `resolv.conf`, qui ne forwarde pas vers l'extérieur → leur résolution DNS
-> externe casse et le proxy renvoie `HIER_NONE/503`. Solution retenue :
-> `podman network create --internal --disable-dns --subnet 10.89.0.0/24 claude-net`, et
-> **IP statiques** pour les sidecars (`egress-proxy=10.89.0.10`, `mcp-remote=10.89.0.11`).
-> Claude n'a jamais besoin de DNS externe : c'est le proxy qui résout les domaines lors du
-> `CONNECT`.
+Côté Claude, la config MCP pointe simplement vers `socat` (adressage par **IP statique** du
+conteneur B, car `claude-net` est créé **sans DNS**). Le détail du câblage, la leçon DNS
+validée (`HIER_NONE/503` si l'aardvark interne est actif) et le tunnel socat sont dans
+[`reseau.md`](reseau.md) ; l'ajout concret d'un serveur dans [`ajouter-un-mcp.md`](ajouter-un-mcp.md).
 
 ### Accès au code
 - **Bind mount** de `$PWD` → `/workspace`. Transparent pour le dev.
@@ -177,7 +136,8 @@ Framework). Deux conséquences :
   Une horloge décalée fait rejeter le token OAuth fraîchement émis (`iat` dans le futur)
   → **Claude se délogue immédiatement après le login**. Le launcher recale donc la VM sur
   l'heure de l'hôte à chaque lancement :
-  `podman machine ssh "sudo date -u -s '@$(date -u +%s)'"`. Le `doctor` vérifie l'écart.
+  `podman machine ssh "sudo date -u -s '@$(date -u +%s)'"` (détaillé dans
+  [`authentification.md`](authentification.md) et [`troubleshooting.md`](troubleshooting.md)).
 
 ---
 
@@ -194,8 +154,9 @@ Framework). Deux conséquences :
 
 ## 7. Décisions ouvertes / next steps
 
-- **Egress allowlist** : proxy sortant (squid/tinyproxy) vs politique réseau Podman ?
-  Quelle liste blanche exacte (Anthropic + quels registries) ?
+- ~~Egress allowlist~~ **résolu** : proxy **squid** + allowlist stricte (voir
+  [`allowlist-egress.md`](allowlist-egress.md) et [`acces-web.md`](acces-web.md)). Reste à
+  cadrer les registries `mise`/`npm`/`github` si install d'outils au runtime.
 - **Audit trail MCP** : le REX pointe ce manque → viser une **MCP gateway** centralisée
   pour logguer les appels MCP (réponse à incident).
 - **Publics non-ingénieurs** : le setup (cloner un repo, installer Podman…) est trop
@@ -212,8 +173,8 @@ Podman est retenu pour :
 1. **Licence** — open source, gratuit, sans restriction (Docker Desktop est payant
    au-delà de 250 employés / 10 M$ CA).
 2. **Sécurité** — rootless & daemonless par défaut, aligné avec le threat model.
-3. **Réseaux** — réseaux internes (`--internal`) simples à définir pour isoler
-   la sortie de Claude (pas de shared-netns qui casserait l'egress) — mcp-remote sur un
-   réseau partagé, ce qui simplifie le tunnel socat.
+3. **Réseaux** — les réseaux internes (`--internal`) sont simples à définir pour isoler
+   la sortie de Claude (pas de shared-netns qui casserait l'egress) tout en gardant un
+   tunnel socat trivial vers le sidecar mcp-remote.
 
 Seul avantage de Docker (GUI Desktop friendly non-devs) concerne un public traité hors v1.
