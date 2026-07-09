@@ -100,4 +100,6 @@ exec podman run -it --rm \
   -e HTTP_PROXY="http://${EGRESS_IP}:${PROXY_PORT}" \
   -e HTTPS_PROXY="http://${EGRESS_IP}:${PROXY_PORT}" \
   -e NO_PROXY="${MCP_IP},localhost,127.0.0.1" \
+  -e DISABLE_TELEMETRY=1 \
+  -e DISABLE_ERROR_REPORTING=1 \
   "$CLAUDE_IMAGE" "$@"
