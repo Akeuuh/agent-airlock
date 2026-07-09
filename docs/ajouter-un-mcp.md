@@ -69,9 +69,10 @@ cd ~/mon-repo && claude
 ## 4. Première connexion : OAuth
 
 À la première utilisation de l'outil, `mcp-remote` lance le flow OAuth. Le callback écoute
-sur `CALLBACK_PORT` dans le conteneur B, **publié sur l'hôte** en `127.0.0.1:9910` par le
-launcher. Ouvre l'URL affichée dans ton navigateur (sur le Mac), autorise → le token est mis
-en cache dans le volume **`claude-mcp-auth`** (isolé dans B, jamais visible par Claude).
+sur `CALLBACK_PORT` dans le conteneur B, **publié automatiquement sur l'hôte** en
+`127.0.0.1:<CALLBACK_PORT>` par le launcher (il dérive les ports de tous les `servers.d/*.env`
+au démarrage). Ouvre l'URL affichée dans ton navigateur (sur le Mac), autorise → le token est
+mis en cache dans le volume **`claude-mcp-auth`** (isolé dans B, jamais visible par Claude).
 
 Vérifie ensuite dans une session Claude :
 ```
@@ -80,19 +81,18 @@ Vérifie ensuite dans une session Claude :
 
 ---
 
-## ⚠️ Limite : plusieurs MCP OAuth
+## ⚠️ Plusieurs MCP OAuth
 
-Le launcher ne publie **qu'un** port de callback (`OAUTH_CALLBACK_PORT=9910`). Si tu ajoutes
-un **second** MCP qui a *aussi* besoin d'un callback OAuth localhost, il faut :
+Aucune manip côté launcher : il **dérive et publie automatiquement** les ports de callback de
+tous les `servers.d/*.env` à chaque démarrage. Pour ajouter un second (ou Nième) MCP OAuth :
 
-1. lui donner un `CALLBACK_PORT` distinct (ex. `9911`) dans son `.env` ;
-2. publier ce port dans le launcher `bin/claude-sandbox.sh`, fonction `ensure_mcp` :
-   ```sh
-   -p "127.0.0.1:9911:9911" \
-   ```
+1. donne-lui un `CALLBACK_PORT` **distinct** (ex. `9911`, `9912`…) dans son `.env` ;
+2. recrée le sidecar pour qu'il republie les ports : `podman rm -f mcp-remote`, puis relance
+   `claude`.
 
-Un MCP **sans OAuth** (token statique dans l'URL, ou pas d'auth) n'a pas besoin de callback :
-laisse `CALLBACK_PORT` vide.
+Le launcher **avertit** (WARN) si deux serveurs déclarent le même `CALLBACK_PORT` (l'un des
+deux OAuth échouerait). Un MCP **sans OAuth** (token statique dans l'URL, ou pas d'auth) n'a
+pas besoin de callback : laisse `CALLBACK_PORT` vide.
 
 ## Dépannage
 

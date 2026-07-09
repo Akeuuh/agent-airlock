@@ -20,7 +20,7 @@ Il localise 90 % des problèmes (machine, images, réseau, isolation, allowlist,
 | **Déconnecté juste après un réveil du Mac** | Dérive d'horloge de la VM → token OAuth rejeté. Relance `claude` (resync auto). Détails : [`authentification.md`](authentification.md). |
 | Login redemandé à chaque run | Le volume `claude-home` n'est pas monté / a été supprimé. |
 | `/mcp` montre « failed » | PORT différent entre `mcp.json` et le `.env`, ou sidecar mcp-remote pas redémarré → [`ajouter-un-mcp.md`](ajouter-un-mcp.md). |
-| L'OAuth MCP ne s'ouvre jamais | `CALLBACK_PORT` non publié sur l'hôte (limite multi-MCP) → [`ajouter-un-mcp.md`](ajouter-un-mcp.md). |
+| L'OAuth ne s'ouvre jamais | `CALLBACK_PORT` vide, ou en **doublon** entre deux MCP (le launcher WARN), ou sidecar pas recréé après ajout → [`ajouter-un-mcp.md`](ajouter-un-mcp.md). |
 | `mise install` échoue au démarrage | Les registries ne sont pas dans l'allowlist squid → [`allowlist-egress.md`](allowlist-egress.md). |
 | Une modif de `mcp.json`/skill/commande n'a aucun effet | Config **cuite dans l'image** : il faut `make build-claude` (pas juste relancer) → [`build-et-images.md`](build-et-images.md). |
 

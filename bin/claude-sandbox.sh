@@ -26,7 +26,7 @@ MCP_IP="10.89.0.11"              # IP statique du sidecar mcp-remote sur claude-
 MCP_CTR="mcp-remote"
 EGRESS_CTR="egress-proxy"
 PROXY_PORT=3128
-OAUTH_CALLBACK_PORT="${OAUTH_CALLBACK_PORT:-9910}"   # publié VM→hôte pour le flow OAuth
+OAUTH_CALLBACK_PORT="${OAUTH_CALLBACK_PORT:-9910}"   # défaut/fallback ; sinon dérivé de servers.d
 MCP_AUTH_VOL="claude-mcp-auth"   # volume des tokens OAuth — monté SEULEMENT dans B
 CLAUDE_HOME_VOL="claude-home"    # volume ~/.claude — persiste le login abonnement
 
@@ -69,14 +69,39 @@ ensure_egress() {
   podman network connect --ip "$EGRESS_IP" "$NET" "$EGRESS_CTR" >/dev/null
 }
 
+# Dérive les ports de callback OAuth à publier VM→hôte depuis servers.d/*.env.
+# Chaque MCP OAuth déclare son propre CALLBACK_PORT (unique) ; on les publie tous, pas
+# besoin de toucher au launcher pour ajouter un serveur. Remplit le tableau MCP_CB_ARGS.
+# Écrit en bash 3.2 (macOS) : pas d'array associatif, pas de mapfile.
+MCP_CB_ARGS=()
+mcp_callback_derive() {
+  MCP_CB_ARGS=()
+  local seen=" " f cp
+  shopt -s nullglob
+  for f in "$REPO_DIR"/containers/mcp-remote/servers.d/*.env; do
+    cp=$(grep -E '^[[:space:]]*CALLBACK_PORT=' "$f" | tail -1 | cut -d= -f2 | tr -d ' \"'\''')
+    [ -n "$cp" ] || continue
+    case "$seen" in
+      *" $cp "*) log "WARN: CALLBACK_PORT $cp déclaré plusieurs fois dans servers.d — l'OAuth d'un des MCP échouera"; continue ;;
+    esac
+    seen="$seen$cp "
+    MCP_CB_ARGS+=(-p "127.0.0.1:${cp}:${cp}")
+  done
+  shopt -u nullglob
+  # Aucun callback déclaré → publie le port par défaut (inoffensif, sert l'exemple).
+  [ ${#MCP_CB_ARGS[@]} -eq 0 ] && MCP_CB_ARGS=(-p "127.0.0.1:${OAUTH_CALLBACK_PORT}:${OAUTH_CALLBACK_PORT}")
+}
+
 ensure_mcp() {
   running "$MCP_CTR" && return 0
   podman rm -f "$MCP_CTR" >/dev/null 2>&1 || true
   log "démarrage du sidecar mcp-remote ($MCP_CTR)"
-  # Callback OAuth publié sur l'hôte ; volume des tokens ISOLÉ ici (jamais dans A).
+  # Ports de callback OAuth publiés sur l'hôte (dérivés de servers.d) ; volume des tokens
+  # ISOLÉ ici (jamais dans A).
+  mcp_callback_derive
   podman run -d --name "$MCP_CTR" \
     --network "$NET_EXT" \
-    -p "127.0.0.1:${OAUTH_CALLBACK_PORT}:${OAUTH_CALLBACK_PORT}" \
+    "${MCP_CB_ARGS[@]}" \
     -v "${MCP_AUTH_VOL}:/home/node/.mcp-auth:Z" \
     -v "$REPO_DIR/containers/mcp-remote/servers.d:/servers.d:ro,Z" \
     "$MCP_IMAGE" >/dev/null
