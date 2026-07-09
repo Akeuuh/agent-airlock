@@ -4,9 +4,9 @@ secrets/
 *.local
 *.secret
 
-# Fichiers de conf serveurs MCP réels (garder seulement les .example)
+# Fichiers de conf serveurs MCP réels (garder seulement l'exemple .sample)
 containers/mcp-remote/servers.d/*.env
-!containers/mcp-remote/servers.d/*.example.env
+!containers/mcp-remote/servers.d/*.sample
 
 # OS
 .DS_Store

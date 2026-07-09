@@ -59,7 +59,7 @@ On ne fait **pas** confiance à l'agent. On le met dans une boîte d'où il ne p
    ┌────────────────────────┤  A : claude  │  /workspace (code)│
    │  • Claude Code + skills │              │                  │
    │  • mise (outils par repo)              │                  │
-   │  • MCP déclaré = socat ──► TCP:mcp-remote:9000            │
+   │  • MCP déclaré = socat ──► TCP:10.89.0.11:9000            │
    │  • pas d'internet direct ; sortie via HTTP_PROXY ─┐       │
    └──────────────────┬─────────────────────┼──────────┼──────┘
          tunnel TCP   │        callback OAuth │          │ proxifié
@@ -119,10 +119,20 @@ HTTP distant. **Les tokens restent dans le conteneur B, jamais visibles par Clau
 Côté Claude, la config MCP pointe simplement vers socat :
 ```json
 { "mcpServers": {
-    "exemple": { "command": "socat", "args": ["STDIO", "TCP:mcp-remote:9000"] }
+    "exemple": { "command": "socat", "args": ["STDIO", "TCP:10.89.0.11:9000"] }
 }}
 ```
-(`mcp-remote` = nom du conteneur B, résolu par le DNS du réseau interne `claude-net`.)
+(`10.89.0.11` = **IP statique** du conteneur B sur `claude-net`. On adresse par IP et non
+par nom car `claude-net` est créé **sans DNS** — voir la note ci-dessous.)
+
+> ⚠️ **Leçon de mise en œuvre (validée) — DNS.** Si `claude-net` a le DNS activé
+> (aardvark), les sidecars *multi-homed* (interne + externe) héritent du resolver interne
+> en tête de `resolv.conf`, qui ne forwarde pas vers l'extérieur → leur résolution DNS
+> externe casse et le proxy renvoie `HIER_NONE/503`. Solution retenue :
+> `podman network create --internal --disable-dns --subnet 10.89.0.0/24 claude-net`, et
+> **IP statiques** pour les sidecars (`egress-proxy=10.89.0.10`, `mcp-remote=10.89.0.11`).
+> Claude n'a jamais besoin de DNS externe : c'est le proxy qui résout les domaines lors du
+> `CONNECT`.
 
 ### Accès au code
 - **Bind mount** de `$PWD` → `/workspace`. Transparent pour le dev.
@@ -158,6 +168,10 @@ Framework). Deux conséquences :
   navigateur complète le flow.
 - **Bind mounts** : passent par virtiofs. Perf OK pour du code source ; éviter de faire
   écrire des arborescences massives (type node_modules) directement sur le mount monté.
+- **Chemins montables** (validé) : Podman machine ne monte dans sa VM que les chemins
+  **partagés** (par défaut `$HOME`). Un repo sous `/tmp` échoue avec `Error: statfs … no
+  such file or directory`. Les projets doivent vivre sous `$HOME` (ou ajouter le partage
+  via `podman machine set --volume`).
 
 ---
 

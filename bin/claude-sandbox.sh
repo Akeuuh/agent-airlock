@@ -18,8 +18,11 @@ CLAUDE_IMAGE="${CLAUDE_SANDBOX_IMAGE:-${REGISTRY}/claude-sandbox:latest}"
 MCP_IMAGE="${MCP_REMOTE_IMAGE:-${REGISTRY}/mcp-remote:latest}"
 EGRESS_IMAGE="${EGRESS_IMAGE:-${REGISTRY}/egress-proxy:latest}"
 
-NET="claude-net"                 # réseau INTERNE (pas de route internet)
+NET="claude-net"                 # réseau INTERNE (pas de route internet, DNS désactivé)
 NET_EXT="podman"                 # réseau par défaut (internet) pour les sidecars
+SUBNET="10.89.0.0/24"
+EGRESS_IP="10.89.0.10"           # IP statique du proxy sur claude-net (pas de DNS interne)
+MCP_IP="10.89.0.11"              # IP statique du sidecar mcp-remote sur claude-net
 MCP_CTR="mcp-remote"
 EGRESS_CTR="egress-proxy"
 PROXY_PORT=3128
@@ -33,10 +36,14 @@ log "pull des images…"
 podman pull -q "$CLAUDE_IMAGE" >/dev/null 2>&1 || log "WARN: pull claude KO (offline ?), on garde le cache local"
 
 # ─── 2. Réseau interne ────────────────────────────────────────────────────────
-# --internal = aucune route vers internet. Seuls les sidecars ont une 2e patte réseau.
+# --internal    = aucune route vers internet (Claude ne peut pas exfiltrer en direct).
+# --disable-dns = pas d'aardvark interne (sinon il pollue le resolv.conf des sidecars
+#                 multi-homed et casse leur résolution DNS externe). On adresse donc
+#                 les sidecars par IP statique ; Claude n'a jamais besoin de DNS externe
+#                 (c'est le proxy qui résout les domaines via le CONNECT).
 podman network exists "$NET" || {
-  log "création du réseau interne $NET"
-  podman network create --internal "$NET" >/dev/null
+  log "création du réseau interne $NET (sans DNS, subnet $SUBNET)"
+  podman network create --internal --disable-dns --subnet "$SUBNET" "$NET" >/dev/null
 }
 
 # ─── 3. Sidecars long-lived ───────────────────────────────────────────────────
@@ -46,12 +53,12 @@ ensure_egress() {
   running "$EGRESS_CTR" && return 0
   podman rm -f "$EGRESS_CTR" >/dev/null 2>&1 || true
   log "démarrage du proxy egress ($EGRESS_CTR)"
-  # Deux pattes : claude-net (interne, vu par Claude) + NET_EXT (internet, allowlisté).
+  # Réseau externe PRIMAIRE (internet + DNS OK), puis claude-net en IP statique.
   podman run -d --name "$EGRESS_CTR" \
-    --network "$NET" \
+    --network "$NET_EXT" \
     -v "$REPO_DIR/egress/squid.conf:/etc/squid/squid.conf:ro,Z" \
     "$EGRESS_IMAGE" >/dev/null
-  podman network connect "$NET_EXT" "$EGRESS_CTR" >/dev/null 2>&1 || true
+  podman network connect --ip "$EGRESS_IP" "$NET" "$EGRESS_CTR" >/dev/null
 }
 
 ensure_mcp() {
@@ -60,12 +67,12 @@ ensure_mcp() {
   log "démarrage du sidecar mcp-remote ($MCP_CTR)"
   # Callback OAuth publié sur l'hôte ; volume des tokens ISOLÉ ici (jamais dans A).
   podman run -d --name "$MCP_CTR" \
-    --network "$NET" \
+    --network "$NET_EXT" \
     -p "127.0.0.1:${OAUTH_CALLBACK_PORT}:${OAUTH_CALLBACK_PORT}" \
     -v "${MCP_AUTH_VOL}:/home/node/.mcp-auth:Z" \
     -v "$REPO_DIR/containers/mcp-remote/servers.d:/servers.d:ro,Z" \
     "$MCP_IMAGE" >/dev/null
-  podman network connect "$NET_EXT" "$MCP_CTR" >/dev/null 2>&1 || true
+  podman network connect --ip "$MCP_IP" "$NET" "$MCP_CTR" >/dev/null
 }
 
 ensure_egress
@@ -90,7 +97,7 @@ exec podman run -it --rm \
   -v "$PWD:/workspace:Z" \
   "${GIT_MOUNTS[@]}" \
   -w /workspace \
-  -e HTTP_PROXY="http://${EGRESS_CTR}:${PROXY_PORT}" \
-  -e HTTPS_PROXY="http://${EGRESS_CTR}:${PROXY_PORT}" \
-  -e NO_PROXY="${MCP_CTR},localhost,127.0.0.1" \
+  -e HTTP_PROXY="http://${EGRESS_IP}:${PROXY_PORT}" \
+  -e HTTPS_PROXY="http://${EGRESS_IP}:${PROXY_PORT}" \
+  -e NO_PROXY="${MCP_IP},localhost,127.0.0.1" \
   "$CLAUDE_IMAGE" "$@"
