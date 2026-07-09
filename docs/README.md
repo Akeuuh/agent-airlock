@@ -4,6 +4,9 @@ Guides pour **utiliser, étendre et contribuer** au sandbox.
 
 ## Comprendre
 - [`architecture.md`](architecture.md) — modèle de menace, schémas, décisions de design.
+- [`reseau.md`](reseau.md) — réseau interne, DNS, IP statiques, tunnel MCP socat.
+- [`acces-web.md`](acces-web.md) — WebSearch / WebFetch / MCP : ce que Claude peut fetcher.
+- [`authentification.md`](authentification.md) — login abonnement, resync horloge, volumes.
 - Le [README](../README.md) — vue d'ensemble + installation.
 
 ## Étendre
@@ -12,6 +15,10 @@ Guides pour **utiliser, étendre et contribuer** au sandbox.
 - [`ajouter-une-commande.md`](ajouter-une-commande.md) — ajouter une slash-command / un plugin.
 - [`allowlist-egress.md`](allowlist-egress.md) — autoriser un domaine de sortie.
 - [`build-et-images.md`](build-et-images.md) — build, tag, registry d'équipe.
+
+## Exploiter
+- [`onboarding.md`](onboarding.md) — installer le sandbox sur une nouvelle machine.
+- [`troubleshooting.md`](troubleshooting.md) — dépannage.
 
 ## Contribuer
 - [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — workflow, conventions, checklist PR.
