@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "exemple": {
+      "command": "socat",
+      "args": ["STDIO", "TCP:mcp-remote:9000"]
+    }
+  }
+}

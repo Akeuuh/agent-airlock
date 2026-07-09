@@ -1,0 +1,12 @@
+# Credentials & secrets — NE JAMAIS commiter
+.mcp-auth/
+secrets/
+*.local
+*.secret
+
+# Fichiers de conf serveurs MCP réels (garder seulement les .example)
+containers/mcp-remote/servers.d/*.env
+!containers/mcp-remote/servers.d/*.example.env
+
+# OS
+.DS_Store

@@ -1,0 +1,19 @@
+# ── Image B : mcp-remote + socat (sidecar OAuth) ──────────────────────────────
+# Réalise le flow OAuth des MCP HTTP et expose un tunnel TCP au conteneur A.
+# LES TOKENS OAUTH VIVENT ICI — jamais dans le conteneur Claude.
+FROM node:22-bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      socat ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# mcp-remote : convertit MCP-HTTP(+OAuth) ↔ MCP-STDIO
+RUN npm install -g mcp-remote
+
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
+USER node
+RUN mkdir -p /home/node/.mcp-auth
+
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
