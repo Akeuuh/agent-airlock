@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # claude-doctor — vérifie l'état complet du sandbox Claude (infra + isolation + auth).
-# Usage : ~/claude-isolation/bin/claude-doctor.sh
+# Usage : ~/agent-airlock/bin/claude-doctor.sh
 
 set -uo pipefail
 

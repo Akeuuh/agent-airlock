@@ -17,13 +17,13 @@ brew install podman
 podman machine init --provider applehv && podman machine start
 
 # 2. Cloner + builder les images (~5 min la première fois)
-git clone <ce-repo> ~/claude-isolation
-cd ~/claude-isolation
+git clone <ce-repo> ~/agent-airlock
+cd ~/agent-airlock
 make build
 
 # 3. Alias dans le shell rc
-echo "alias claude='~/claude-isolation/bin/claude-sandbox.sh'" >> ~/.zshrc
-echo "alias claude-doctor='~/claude-isolation/bin/claude-doctor.sh'" >> ~/.zshrc
+echo "alias claude='~/agent-airlock/bin/claude-sandbox.sh'" >> ~/.zshrc
+echo "alias claude-doctor='~/agent-airlock/bin/claude-doctor.sh'" >> ~/.zshrc
 source ~/.zshrc
 
 # 4. Vérifier

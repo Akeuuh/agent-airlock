@@ -1,4 +1,4 @@
-# Documentation — claude-isolation
+# Documentation — agent-airlock
 
 Guides pour **utiliser, étendre et contribuer** au sandbox.
 

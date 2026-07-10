@@ -1,4 +1,4 @@
-# claude-isolation
+# agent-airlock
 
 Faire tourner **Claude Code** en mode autonome (`--dangerously-skip-permissions`) dans un
 sandbox **Podman**, sans exposer la machine à l'exfiltration de secrets ni à la destruction
@@ -94,7 +94,7 @@ Claude voit un MCP « local », mais l'OAuth et les tokens vivent dans B, hors d
 ## Structure du repo
 
 ```
-claude-isolation/
+agent-airlock/
 ├── bin/
 │   ├── claude-sandbox.sh          # launcher (alias `claude`) : pull + réseau + sidecars + run -it
 │   └── claude-doctor.sh           # diagnostic complet (infra + isolation + auth)
@@ -141,15 +141,15 @@ podman machine init --provider applehv
 podman machine start
 
 # 2. Récupérer le repo
-git clone <ce-repo> ~/claude-isolation
-cd ~/claude-isolation
+git clone <ce-repo> ~/agent-airlock
+cd ~/agent-airlock
 
 # 3. Construire les images (tant qu'il n'y a pas de registry d'équipe)
 make build
 
 # 4. Alias dans ton shell rc (~/.zshrc)
-alias claude='~/claude-isolation/bin/claude-sandbox.sh'
-alias claude-doctor='~/claude-isolation/bin/claude-doctor.sh'
+alias claude='~/agent-airlock/bin/claude-sandbox.sh'
+alias claude-doctor='~/agent-airlock/bin/claude-doctor.sh'
 
 # 5. Premier lancement (dans un repo SOUS $HOME, pas /tmp)
 cd ~/code/mon-projet
@@ -164,7 +164,7 @@ claude          # → login abonnement au 1er run (flow « coller le code »)
 ## Vérifier la config
 
 ```sh
-claude-doctor          # ou: ~/claude-isolation/bin/claude-doctor.sh
+claude-doctor          # ou: ~/agent-airlock/bin/claude-doctor.sh
 ```
 
 Contrôle en un coup (16 checks) : machine podman, **horloge VM** (dérive → logout OAuth), images, réseau `internal=true dns=false`,
