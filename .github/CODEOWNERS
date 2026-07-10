@@ -1,0 +1,11 @@
+# CODEOWNERS
+# Les zones sensibles (réseau, privilèges, secrets) nécessitent une review du mainteneur.
+# Syntaxe : pattern  @github-username
+
+# Zones critiques — toute modif doit être approuvée
+/containers/          @Akeuuh
+/bin/                 @Akeuuh
+/egress/              @Akeuuh
+
+# Reste du repo
+*                     @Akeuuh
