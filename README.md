@@ -207,3 +207,10 @@ Depuis une session Claude en cours : `/status` (compte, modèle), `/mcp` (serveu
 - **Audit trail MCP** : viser une MCP gateway centralisée (réponse à incident).
 - **Skills/plugins communs** : dossiers à peupler dans l'image (`/opt/claude-dist`).
 - **Utilisateurs non-ingénieurs** : le flux (podman, clone, build) reste trop technique.
+
+---
+
+## Licence
+
+[MIT](LICENSE) — © 2026 Axel Leclercq. Fais-en ce que tu veux, garde la mention de copyright,
+aucune garantie.
