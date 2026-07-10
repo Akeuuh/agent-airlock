@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # claude-sandbox — lance Claude Code dans un sandbox Podman.
-# Usage : alias claude='~/Dev/IA/claude-isolation/bin/claude-sandbox.sh'
+# Usage : alias claude='~/claude-isolation/bin/claude-sandbox.sh'
 #
 # Étapes : pull image à jour → réseau interne → sidecars (mcp-remote, egress) → run -it.
 # Voir docs/architecture.md pour le pourquoi de chaque brique.

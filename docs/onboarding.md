@@ -17,13 +17,13 @@ brew install podman
 podman machine init --provider applehv && podman machine start
 
 # 2. Cloner + builder les images (~5 min la première fois)
-git clone <ce-repo> ~/Dev/IA/claude-isolation
-cd ~/Dev/IA/claude-isolation
+git clone <ce-repo> ~/claude-isolation
+cd ~/claude-isolation
 make build
 
 # 3. Alias dans le shell rc
-echo "alias claude='~/Dev/IA/claude-isolation/bin/claude-sandbox.sh'" >> ~/.zshrc
-echo "alias claude-doctor='~/Dev/IA/claude-isolation/bin/claude-doctor.sh'" >> ~/.zshrc
+echo "alias claude='~/claude-isolation/bin/claude-sandbox.sh'" >> ~/.zshrc
+echo "alias claude-doctor='~/claude-isolation/bin/claude-doctor.sh'" >> ~/.zshrc
 source ~/.zshrc
 
 # 4. Vérifier
