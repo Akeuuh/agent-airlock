@@ -17,6 +17,8 @@ RUN chmod +x /usr/local/bin/entrypoint.sh \
 
 USER claude
 
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
 # mise (gestionnaire d'outils déclaratif par repo)
 RUN curl -fsSL https://mise.run | sh
 ENV PATH="/home/claude/.local/bin:/home/claude/.local/share/mise/shims:${PATH}"
