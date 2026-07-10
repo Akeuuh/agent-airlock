@@ -1,0 +1,7 @@
+---
+# Règles désactivées intentionnellement
+ignore:
+  # Pinning apt versions is impractical for socat/git/curl/ca-certificates
+  - DL3008
+  # Pinning @anthropic-ai/claude-code npm version is intentionally left floating
+  - DL3016

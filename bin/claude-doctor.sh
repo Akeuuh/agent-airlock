@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "$(readlink -f "$0" 2>/dev/null || echo "$0")")" && 
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 SERVERS_DIR="$REPO_DIR/containers/mcp-remote/servers.d"
 NET="claude-net"; EGRESS_CTR="egress-proxy"; MCP_CTR="mcp-remote"
-EGRESS_IP="10.89.0.10"; MCP_IP="10.89.0.11"; PROXY="http://10.89.0.10:3128"
+EGRESS_IP="10.89.0.10"; MCP_IP="10.89.0.11"; PROXY="http://${EGRESS_IP}:3128"
 CLAUDE_IMAGE="localhost/claude-sandbox:latest"
 
 pass=0; fail=0

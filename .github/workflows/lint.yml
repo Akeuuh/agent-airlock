@@ -1,0 +1,43 @@
+name: Lint
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run ShellCheck
+        uses: ludeeus/action-shellcheck@master
+        with:
+          scandir: "."
+          severity: warning
+
+  hadolint:
+    name: Hadolint (Containerfiles)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Lint containers/claude/Containerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: containers/claude/Containerfile
+      - name: Lint containers/mcp-remote/Containerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: containers/mcp-remote/Containerfile
+
+  gitleaks:
+    name: Secret scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
