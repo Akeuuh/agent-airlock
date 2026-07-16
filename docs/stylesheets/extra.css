@@ -1,0 +1,34 @@
+/* Hero section on landing page */
+.hero {
+  text-align: center;
+  padding: 2rem 0 1rem;
+}
+
+.hero h1 {
+  font-size: 2.5rem;
+  font-weight: 700;
+  margin-bottom: 0.5rem;
+}
+
+.hero p {
+  font-size: 1.1rem;
+  color: var(--md-default-fg-color--light);
+  max-width: 600px;
+  margin: 0 auto 1.5rem;
+}
+
+.hero .highlight {
+  margin: 0 auto;
+  max-width: 680px;
+  text-align: left;
+}
+
+/* Make grid cards look nicer */
+.md-typeset .grid.cards > :is(ul, ol) > li {
+  border-radius: 0.5rem;
+  transition: border-color 0.2s;
+}
+
+.md-typeset .grid.cards > :is(ul, ol) > li:hover {
+  border-color: var(--md-primary-fg-color);
+}
