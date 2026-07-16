@@ -1,0 +1,78 @@
+site_name: agent-airlock
+site_description: Run Claude Code in a Podman sandbox — docs & guides
+repo_url: https://github.com/Akeuuh/agent-airlock
+repo_name: Akeuuh/agent-airlock
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Dark mode
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.sections
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+markdown_extensions:
+  - attr_list
+  - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - footnotes
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+
+extra_css:
+  - stylesheets/extra.css
+
+nav:
+  - Home: index.md
+  - Quick Start: get-started.md
+  - How-To Guides:
+      - Add MCP Server: add-mcp.md
+      - Add Skill: add-skill.md
+      - Add Command: add-command.md
+      - Egress Allowlist: egress-allowlist.md
+      - Build & Images: build-and-images.md
+      - Onboard a Teammate: onboarding.md
+  - Reference:
+      - Architecture: architecture.md
+      - Profiles: profiles.md
+      - Network & MCP Tunnel: network.md
+      - Web Access: web-access.md
+      - Authentication: authentication.md
+  - Help:
+      - Troubleshooting: troubleshooting.md
+  - Contribute: contribute.md
