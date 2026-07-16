@@ -1,0 +1,4 @@
+# Config distribuée seedée dans ~/.pi/agent au run (voir entrypoint).
+# pi n'a pas de MCP natif (workflow via extensions) : le tunnel socat du
+# sidecar mcp-remote reste inutilisé sauf extension dédiée.
+# Ajoute ici settings.json, AGENTS.md, extensions… à distribuer dans l'image.
