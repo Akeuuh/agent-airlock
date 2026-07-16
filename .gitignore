@@ -20,3 +20,6 @@ egress/.runtime/
 # OS
 .DS_Store
 containers/mcp-remote/servers.d-proxy/*.env
+
+# MkDocs build output
+site/

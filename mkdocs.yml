@@ -1,0 +1,70 @@
+site_name: agent-airlock
+site_description: Run Claude Code in a Podman sandbox — docs & guides
+repo_url: https://github.com/Akeuuh/agent-airlock
+repo_name: Akeuuh/agent-airlock
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    # Dark mode (system preference)
+    - scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-4
+        name: Dark mode
+    # Light mode
+    - scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/brightness-7
+        name: Light mode
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.indexes
+    - search.suggest
+    - search.highlight
+    - content.code.copy
+    - content.code.annotate
+
+markdown_extensions:
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - admonition
+  - footnotes
+  - toc:
+      permalink: true
+
+plugins:
+  - search
+
+nav:
+  - Home: README.md
+  - Understand:
+      - Architecture: docs/architecture.md
+      - Profiles: docs/profiles.md
+      - Network & MCP: docs/network.md
+      - Web Access: docs/web-access.md
+      - Authentication: docs/authentication.md
+  - Extend:
+      - Add MCP Server: docs/add-mcp.md
+      - Add Skill: docs/add-skill.md
+      - Add Command: docs/add-command.md
+      - Egress Allowlist: docs/egress-allowlist.md
+      - Build & Images: docs/build-and-images.md
+  - Operate:
+      - Onboarding: docs/onboarding.md
+      - Troubleshooting: docs/troubleshooting.md
+  - Contribute: CONTRIBUTING.md
