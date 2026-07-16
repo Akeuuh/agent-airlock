@@ -1,19 +1,18 @@
-# ── Image B : mcp-remote + socat (sidecar OAuth) ──────────────────────────────
-# Réalise le flow OAuth des MCP HTTP et expose un tunnel TCP au conteneur A.
-# LES TOKENS OAUTH VIVENT ICI — jamais dans le conteneur Claude.
+# ── Image sidecar MCP : proxy Node.js + OAuth ─────────────────────────
+# Proxy HTTP minimal qui forwarde les requêtes vers les serveurs MCP distants.
+# Si aucun token n'est présent, il fait l'OAuth automatiquement (PKCE + callback)
+# et sauvegarde le token dans le volume. LES TOKENS VIVENT ICI — jamais dans
+# le conteneur harness.
 FROM node:22-bookworm-slim
 
 # hadolint ignore=DL3008
 RUN apt-get update && apt-get install -y --no-install-recommends \
-      socat ca-certificates \
+      ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-# mcp-remote : convertit MCP-HTTP(+OAuth) ↔ MCP-STDIO
-# hadolint ignore=DL3016
-RUN npm install -g mcp-remote
-
+COPY proxy.js /usr/local/bin/proxy.js
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
-RUN chmod +x /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/proxy.js /usr/local/bin/entrypoint.sh
 
 USER node
 RUN mkdir -p /home/node/.mcp-auth

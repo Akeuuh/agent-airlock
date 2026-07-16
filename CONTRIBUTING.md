@@ -9,7 +9,7 @@ avec le modèle de menace en tête** ([`docs/architecture.md`](docs/architecture
 Voir le [README](README.md) : Podman + `make build` + alias. Vérifie ton install :
 
 ```sh
-claude-doctor
+agent-doctor
 ```
 
 ## Workflow
@@ -17,7 +17,7 @@ claude-doctor
 1. **Branche** depuis `main` : `git checkout -b feat/mon-sujet`.
 2. **Modifie** en suivant le [tableau « où va ma modif »](docs/README.md#-où-va-ma-modif-et-comment-lappliquer)
    (bind-mount vs rebuild image).
-3. **Teste** : rebuild si besoin, relance `claude` dans un vrai repo, et **`claude-doctor`
+3. **Teste** : rebuild si besoin, relance `claude` dans un vrai repo, et **`agent-doctor`
    doit rester vert** (surtout isolation réseau + allowlist).
 4. **Commit** en [Conventional Commits](#convention-de-commit).
 5. **PR** avec la [checklist](#checklist-pr) remplie.
@@ -40,7 +40,7 @@ Le corps explique le **pourquoi** (pas le quoi). Pour toute modif réseau/sécu,
 
 ## Checklist PR
 
-- [ ] `claude-doctor` **vert** (isolation, allowlist, sidecars).
+- [ ] `agent-doctor` **vert** (isolation, allowlist, sidecars).
 - [ ] Aucun secret commité (tokens, `.env` réels, clés) — cf. `.gitignore`.
 - [ ] Modif réseau (allowlist / port publié) **justifiée** dans le commit + a minima
       possible (sous-domaine exact plutôt que wildcard).
@@ -52,8 +52,8 @@ Le corps explique le **pourquoi** (pas le quoi). Pour toute modif réseau/sécu,
 ## Principes de design (à ne pas casser)
 
 - **Le conteneur A n'a jamais internet direct** — uniquement via le proxy egress.
-- **Les credentials ne vivent jamais dans A** : login abonnement dans `claude-home`, tokens
-  MCP dans `claude-mcp-auth` (monté seulement dans B).
+- **Les credentials ne vivent jamais dans A** : login abonnement dans `agent-home-claude`, tokens
+  MCP dans `agent-mcp-auth` (monté seulement dans B).
 - **Allowlist par défaut fermée** : on ajoute au cas par cas, jamais de « allow all ».
 - **Réduire la surface du canal MCP** via `ALLOWED_TOOLS`.
 - **Rien d'exécuté par l'agent ne doit s'échapper** (hooks git neutralisés, volumes maîtrisés).

@@ -1,8 +1,8 @@
 # Ajouter un skill commun
 
 Les skills sont **embarqués dans l'image A** et distribués à toute l'équipe. Au démarrage,
-l'entrypoint copie `/opt/claude-dist/config/` dans `~/.claude/` — donc un skill placé dans
-`containers/claude/config/skills/` se retrouve dans `~/.claude/skills/` de chaque sandbox.
+l'entrypoint copie `/opt/dist/config/` dans `~/.claude/` — donc un skill placé dans
+`profiles/claude/config/skills/` se retrouve dans `~/.claude/skills/` de chaque sandbox.
 
 > Un skill = un dossier avec un fichier `SKILL.md` (frontmatter YAML `name` + `description`,
 > puis le corps en markdown). Voir la [doc skills de Claude Code](https://code.claude.com/docs).
@@ -12,10 +12,10 @@ l'entrypoint copie `/opt/claude-dist/config/` dans `~/.claude/` — donc un skil
 ## 1. Créer le skill
 
 ```sh
-mkdir -p containers/claude/config/skills/mon-skill
+mkdir -p profiles/claude/config/skills/mon-skill
 ```
 
-`containers/claude/config/skills/mon-skill/SKILL.md` :
+`profiles/claude/config/skills/mon-skill/SKILL.md` :
 
 ```markdown
 ---
@@ -46,7 +46,7 @@ relatif** (résolus depuis le dossier du skill).
 Les skills sont **cuits dans l'image** → rebuild puis relance :
 
 ```sh
-make build-claude
+make build-harness PROFILE=claude
 cd ~/mon-repo && claude
 ```
 
@@ -62,7 +62,7 @@ Contrairement aux `servers.d/*.env`, les skills **sont versionnés** (rien ne le
 `.gitignore`) — c'est le but : les partager à l'équipe.
 
 ```sh
-git add containers/claude/config/skills/mon-skill
+git add profiles/claude/config/skills/mon-skill
 git commit -m "feat(skills): ajoute mon-skill"
 ```
 

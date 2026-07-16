@@ -8,5 +8,15 @@ secrets/
 containers/mcp-remote/servers.d/*.env
 !containers/mcp-remote/servers.d/*.sample
 
+# Clés API des harness (auth apikey) — NE JAMAIS commiter
+profiles/*/secrets.env
+
+# Choix de providers persisté par profil (préférence locale)
+profiles/*/.providers
+
+# squid.conf runtime généré par profil (base + allowlist du profil)
+egress/.runtime/
+
 # OS
 .DS_Store
+containers/mcp-remote/servers.d-proxy/*.env

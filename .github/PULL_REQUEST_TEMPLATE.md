@@ -12,7 +12,7 @@
 
 ## Checklist PR
 
-- [ ] `claude-doctor` **vert** (isolation réseau, allowlist, sidecars)
+- [ ] `agent-doctor` **vert** (isolation réseau, allowlist, sidecars)
 - [ ] Aucun secret commité (tokens, `.env` réels, clés)
 - [ ] Modif réseau (allowlist / port publié) **justifiée** dans le commit et aussi restrictive que possible (sous-domaine exact, pas de wildcard)
 - [ ] Un nouveau MCP a un `ALLOWED_TOOLS` restrictif (aucun tool destructeur exposé)

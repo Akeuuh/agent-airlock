@@ -5,10 +5,10 @@ Le *pourquoi* est dans [`architecture.md`](architecture.md) ; ici c'est le *comm
 
 ## Le réseau interne
 
-`claude-net` est créé ainsi :
+`agent-net` est créé ainsi :
 
 ```sh
-podman network create --internal --disable-dns --subnet 10.89.0.0/24 claude-net
+podman network create --internal --disable-dns --subnet 10.89.0.0/24 agent-net
 ```
 
 - **`--internal`** : pas de route vers internet. C'est *la* barrière : le conteneur Claude
@@ -23,11 +23,11 @@ podman network create --internal --disable-dns --subnet 10.89.0.0/24 claude-net
   du `CONNECT` HTTPS.
 
 Les **sidecars** sont démarrés avec le réseau externe (`podman`) comme réseau *primaire*
-(pour avoir internet + un DNS qui marche), puis rattachés à `claude-net` en IP statique :
+(pour avoir internet + un DNS qui marche), puis rattachés à `agent-net` en IP statique :
 
 ```sh
 podman run -d --name egress-proxy --network podman …
-podman network connect --ip 10.89.0.10 claude-net egress-proxy
+podman network connect --ip 10.89.0.10 agent-net egress-proxy
 ```
 
 Côté Claude, la sortie HTTP(S) est forcée vers le proxy via l'environnement du `run` :
@@ -60,7 +60,7 @@ sequenceDiagram
     S1-->>CC: résultat (STDIO)
 ```
 
-Côté Claude (`containers/claude/config/mcp.json`), le serveur MCP est déclaré comme une
+Côté Claude (`profiles/claude/config/mcp.json`), le serveur MCP est déclaré comme une
 simple commande `socat` :
 
 ```json

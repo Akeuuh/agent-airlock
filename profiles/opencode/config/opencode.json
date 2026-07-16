@@ -1,0 +1,15 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "exemple": {
+      "type": "local",
+      "command": ["socat", "STDIO", "TCP:10.89.0.11:9000"],
+      "enabled": true
+    },
+    "jira": {
+      "type": "remote",
+      "url": "http://10.89.0.12:9000",
+      "enabled": true
+    }
+  }
+}

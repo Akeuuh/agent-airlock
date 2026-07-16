@@ -1,0 +1,22 @@
+# ── Image HARNESS : base + binaire du harness + config distribuée ────────────
+# Générique : le contexte de build est profiles/<name>/ (install.sh, mcp.json…).
+#   podman build --build-arg BASE_IMAGE=localhost/agent-base:latest \
+#     -t localhost/agent-<name>:latest -f containers/harness/Containerfile \
+#     profiles/<name>
+ARG BASE_IMAGE=localhost/agent-base:latest
+# hadolint ignore=DL3006
+FROM ${BASE_IMAGE}
+
+# Installation du binaire (npm/curl/…) — nécessite root.
+USER root
+COPY install.sh /tmp/install.sh
+# hadolint ignore=DL3016
+# Lancé via `bash` : indépendant du bit exécutable du fichier (footgun évité).
+RUN bash /tmp/install.sh && rm -f /tmp/install.sh
+
+# Config "managée" distribuée dans /opt/dist (skills, commandes, plugins, mcp.json…
+# rafraîchie au run par l'entrypoint ; le vrai config-dir est un VOLUME persistant).
+COPY --chown=agent:agent config/ /opt/dist/config/
+
+USER agent
+WORKDIR /workspace

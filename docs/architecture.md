@@ -47,10 +47,12 @@ On ne fait **pas** confiance à l'agent. On le met dans une boîte d'où il ne p
 > 🗺️ Schéma à jour (mermaid) : voir [**Architecture** dans le README](../README.md#architecture).
 > Le câblage réseau + tunnel socat est détaillé dans [`reseau.md`](reseau.md).
 
-**Idée clé du tunnel** : Claude croit parler à un MCP stdio local. En réalité `socat`
-transforme ce stdio en TCP, traverse le **réseau interne podman** (`claude-net`, sans
-route internet), et un `mcp-remote` côté B fait l'OAuth + la conversion vers le serveur
-HTTP distant. **Les tokens restent dans le conteneur B, jamais visibles par Claude.**
+**Idée clé du proxy** : le harness croit parler à un MCP en streamable-http. En réalité
+les requêtes traversent le réseau interne podman (`agent-net`, sans route internet), et
+un **proxy Node.js** côté B forwarde avec le token. **Pas d'import manuel** : au premier
+run, le proxy détecte l'absence de token, fait l'OAuth (PKCE + callback publié VM→hôte),
+sauvegarde le token dans le volume `agent-mcp-auth`, puis forwarde. Les runs suivants
+utilisent le token stocké. **Les tokens restent dans le conteneur B, jamais visibles par le harness.**
 
 > ⚠️ **Pas de pod partagé.** Mettre A et B dans un même pod Podman partagerait la
 > *network namespace* (même `localhost`, même connectivité) → Claude hériterait de
@@ -75,23 +77,30 @@ HTTP distant. **Les tokens restent dans le conteneur B, jamais visibles par Clau
   les registries pendant `mise install`, rien d'autre. Sans ça le canal d'exfiltration
   reste ouvert et le sandbox perd son intérêt.
 
-### Conteneur B — mcp-remote + socat (sidecar)
-- Un `socat TCP-LISTEN:PORT,reuseaddr,fork EXEC:'npx mcp-remote https://mcp.exemple/sse'`
-  par MCP OAuth. `fork` = une instance mcp-remote par connexion ; les tokens en cache
-  disque sont réutilisés.
-- **Callback OAuth** : mcp-remote ouvre un port de callback. Il doit être **publié
-  VM→hôte** pour que le navigateur de l'utilisateur complète le redirect
-  `http://localhost:PORT` (voir pièges macOS §5).
-- Tokens dans un **volume dédié** (ex. `~/.mcp-auth`) → réutilisés d'un run à l'autre,
-  jamais montés dans le conteneur A.
-- **Filtrage d'outils** : mcp-remote sait masquer des tools → on retire ceux qui peuvent
-  détruire (jamais de write sur la prod AWS ; read-only quand c'est possible).
-- Isolation renforcée possible : **un conteneur B par MCP** pour cloisonner davantage.
+### Conteneur B — proxy MCP + OAuth automatique (sidecar)
+- **Proxy Node.js** (~280 lignes) qui gère deux modes transparents :
+  - **Token présent** → injection Bearer + forward immédiat.
+  - **Pas de token** → OAuth discovery (sonde le serveur MCP) + PKCE flow →
+    callback publié VM→hôte → l'utilisateur ouvre l'URL dans son navigateur →
+    le proxy échange le code contre un token → sauvegarde → forward.
+- **Deux instances** du même conteneur, configurées différemment :
+  - `mcp-remote` (10.89.0.11) : lit `servers.d/*.env` — pour claude/opencode (MCP natif).
+  - `mcp-proxy` (10.89.0.12) : lit `servers.d-proxy/*.env` — pour pi (extension
+    pi-mcp-enhanced en transport `streamable-http`). Les fichiers `servers.d-proxy/` sont
+    générés par `agent-mcp-wire.sh` depuis le `mcp.json` hôte.
+- Tokens dans un **volume dédié** (`agent-mcp-auth`) → réutilisés d'un run à l'autre,
+  **jamais montés dans le conteneur harness**.
+- **Ajout d'un serveur** : `agent-mcp-wire.sh --profile <name>` lit le `mcp.json` hôte
+  et génère les fichiers côté sidecar + un `mcp.json` sandbox dans le volume.
+  Pour claude/opencode, créer manuellement `servers.d/<nom>.env`.
+- Fallback : si l'OAuth automatique échoue, `agent-import-auth.sh --mcp <serveur>`
+  permet d'importer un token obtenu côté hôte.
 
-Côté Claude, la config MCP pointe simplement vers `socat` (adressage par **IP statique** du
-conteneur B, car `claude-net` est créé **sans DNS**). Le détail du câblage, la leçon DNS
-validée (`HIER_NONE/503` si l'aardvark interne est actif) et le tunnel socat sont dans
-[`reseau.md`](reseau.md) ; l'ajout concret d'un serveur dans [`ajouter-un-mcp.md`](ajouter-un-mcp.md).
+Côté harness, la config MCP pointe vers le proxy en `streamable-http` (ex.
+`http://10.89.0.12:9000` pour pi) ou via `type: url` / `type: remote` pour
+claude/opencode. Le détail du câblage est dans [`reseau.md`](reseau.md) ;
+l'ajout concret d'un serveur dans [`ajouter-un-mcp.md`](ajouter-un-mcp.md) et
+[`profils.md`](profils.md).
 
 ### Accès au code
 - **Bind mount** de `$PWD` → `/workspace`. Transparent pour le dev.
@@ -106,15 +115,40 @@ validée (`HIER_NONE/503` si l'aardvark interne est actif) et le tunnel socat so
 
 ---
 
-## 4. Le point d'entrée : script `claude`
+## 4. Le point d'entrée : script `agent-sandbox`
 
-`alias claude='~/bin/claude-sandbox.sh'`. Le script :
-1. `podman pull` l'image commune (dernière version).
-2. Crée le réseau interne `claude-net` et assure les **sidecars** (conteneur B
-   mcp-remote, conteneur C proxy egress) démarrés s'ils ne tourne pas.
+`alias claude='~/agent-airlock/bin/agent-sandbox.sh --profile claude'` (ou un alias
+`agent` générique + `$AGENT_PROFILE`). Le script :
+1. **Résout le profil** (harness) puis build l'image si absente (base + `install.sh`).
+2. Crée le réseau interne `agent-net` et assure les **sidecars** (conteneur B
+   mcp-remote, conteneur C proxy egress) démarrés s'ils ne tournent pas.
 3. `podman run -it --rm` le conteneur A : monte `$PWD` (+ parent si worktree), l'attache
-   au réseau `claude-net`, fixe `HTTP(S)_PROXY` vers le proxy egress, lance Claude.
-4. `-it` → l'utilisateur reste dans son terminal, expérience identique à `claude` en local.
+   au réseau `agent-net`, fixe `HTTP(S)_PROXY` vers le proxy egress, lance le harness.
+4. `-it` → l'utilisateur reste dans son terminal, expérience identique au harness en local.
+
+---
+
+## 4bis. Profils — support multi-harness
+
+Le socle est **agnostique du harness**. Tout ce qui est spécifique à un agent (Claude
+Code, pi, opencode…) vit dans un **profil** `profiles/<name>/` ; le launcher, l'entrypoint,
+les sidecars et le doctor sont génériques et pilotés par variables d'env (`HARNESS_*`).
+
+- **Un profil = 4-5 fichiers** : `profile.env` (variables), `install.sh` (binaire dans
+  l'image), `allowlist.conf` (infra egress du profil), `config/` (bundle seedé), et
+  `secrets.env` en auth apikey. Aucun script à modifier pour ajouter un harness.
+- **Résolution** : `--profile X` > `--choose`/`--menu` > `$AGENT_PROFILE` > menu interactif.
+  Image absente → build auto ; profil inexistant → scaffold proposé.
+- **Auth** pilotée par `HARNESS_AUTH_MODE` : `oauth` (login navigateur + resync horloge)
+  ou `apikey` (providers actifs → clés injectées sélectivement + domaines egress).
+- **Providers découplés** : catalogue `providers/<name>.env` (clé + domaine couplés),
+  partagés entre harness. Sélection par **menu multi-choix au lancement** (persisté dans
+  `profiles/<name>/.providers`) ; `--provider` = override one-shot, `--choose-providers` =
+  rouvrir le menu.
+- **Egress strict par profil + set de providers** : allowlist composée (infra + providers),
+  sidecar egress recréé au changement (jamais de fusion).
+
+> Détail complet + guide « ajouter un harness » : [`profils.md`](profils.md).
 
 ---
 
@@ -122,9 +156,9 @@ validée (`HIER_NONE/503` si l'aardvark interne est actif) et le tunnel socat so
 
 Podman (comme Docker) tourne dans une **VM Linux** sur Mac (Apple Virtualization
 Framework). Deux conséquences :
-- **Réseau** : la VM ne partage pas le réseau de l'hôte comme sous Linux. Le port de
-  callback OAuth de mcp-remote doit être **explicitement publié VM→hôte** pour que le
-  navigateur complète le flow.
+- **Réseau** : la VM ne partage pas le réseau de l'hôte comme sous Linux. Les ports
+  de callback OAuth des providers abonnement (ex. Claude Pro sur 53692) doivent être
+  **explicitement publiés VM→hôte** pour que le navigateur complète le flow.
 - **Bind mounts** : passent par virtiofs. Perf OK pour du code source ; éviter de faire
   écrire des arborescences massives (type node_modules) directement sur le mount monté.
 - **Chemins montables** (validé) : Podman machine ne monte dans sa VM que les chemins
@@ -136,7 +170,7 @@ Framework). Deux conséquences :
   Une horloge décalée fait rejeter le token OAuth fraîchement émis (`iat` dans le futur)
   → **Claude se délogue immédiatement après le login**. Le launcher recale donc la VM sur
   l'heure de l'hôte à chaque lancement :
-  `podman machine ssh "sudo date -u -s '@$(date -u +%s)'"` ; le `claude-doctor` signale tout
+  `podman machine ssh "sudo date -u -s '@$(date -u +%s)'"` ; le `agent-doctor` signale tout
   écart résiduel (détaillé dans [`authentification.md`](authentification.md) et
   [`troubleshooting.md`](troubleshooting.md)).
 
@@ -176,6 +210,6 @@ Podman est retenu pour :
 2. **Sécurité** — rootless & daemonless par défaut, aligné avec le threat model.
 3. **Réseaux** — les réseaux internes (`--internal`) sont simples à définir pour isoler
    la sortie de Claude (pas de shared-netns qui casserait l'egress) tout en gardant un
-   tunnel socat trivial vers le sidecar mcp-remote.
+   un tunnel streamable-http vers le sidecar proxy MCP.
 
 Seul avantage de Docker (GUI Desktop friendly non-devs) concerne un public traité hors v1.
