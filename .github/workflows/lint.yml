@@ -22,10 +22,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Lint containers/claude/Containerfile
+      - name: Lint containers/base/Containerfile
         uses: hadolint/hadolint-action@v3.1.0
         with:
-          dockerfile: containers/claude/Containerfile
+          dockerfile: containers/base/Containerfile
+      - name: Lint containers/harness/Containerfile
+        uses: hadolint/hadolint-action@v3.1.0
+        with:
+          dockerfile: containers/harness/Containerfile
       - name: Lint containers/mcp-remote/Containerfile
         uses: hadolint/hadolint-action@v3.1.0
         with:

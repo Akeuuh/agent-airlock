@@ -37,19 +37,19 @@ sensible** (versionné par git) → il est simplement monté en volume.
 
 ## Architecture
 
-Trois conteneurs, un **réseau interne sans route internet** (`claude-net`). Seuls les
+Trois conteneurs, un **réseau interne sans route internet** (`agent-net`). Seuls les
 sidecars B et C ont une seconde patte vers internet ; le conteneur Claude n'en a **aucune**.
 
 ```mermaid
 flowchart TB
     subgraph host["🖥️ Hôte (Mac)"]
-        launcher["alias claude<br/>bin/claude-sandbox.sh"]
+        launcher["alias claude<br/>bin/agent-sandbox.sh"]
         code[("~/code/mon-projet")]
-        vh[("volume claude-home<br/>🔐 login")]
-        vm[("volume claude-mcp-auth<br/>🔐 tokens OAuth")]
+        vh[("volume agent-home-claude<br/>🔐 login")]
+        vm[("volume agent-mcp-auth<br/>🔐 tokens OAuth")]
     end
 
-    subgraph net["🔒 claude-net · réseau interne (--internal --disable-dns · 10.89.0.0/24)"]
+    subgraph net["🔒 agent-net · réseau interne (--internal --disable-dns · 10.89.0.0/24)"]
         A["<b>A · claude</b><br/>Claude Code + mise<br/>❌ aucun internet direct"]
         C["<b>C · egress-proxy</b><br/>10.89.0.10<br/>squid + allowlist"]
         B["<b>B · mcp-remote</b><br/>10.89.0.11<br/>OAuth + tokens ICI"]
@@ -79,11 +79,13 @@ flowchart TB
 | # | Conteneur | Rôle | Internet | Secrets |
 |---|-----------|------|----------|---------|
 | **A** | `claude` | Claude Code + mise. Le code est monté ici. | ❌ direct — **uniquement** via proxy C | aucun |
-| **B** | `mcp-remote` | OAuth des MCP + conversion HTTP↔STDIO | ✅ (serveurs MCP) | **tokens OAuth MCP** |
+| **B** | `mcp-remote` / `mcp-proxy` | Proxy MCP avec injection Bearer (tokens pré-importés) | ✅ (serveurs MCP) | **tokens MCP** (sidecar only) |
 | **C** | `egress-proxy` | Proxy squid, allowlist de sortie | ✅ (allowlist) | — |
 
 Idée centrale : **les credentials ne sont jamais dans le conteneur qui exécute l'agent.**
-Claude voit un MCP « local », mais l'OAuth et les tokens vivent dans B, hors de sa portée.
+Le harness voit un MCP « local » (streamable-http vers le proxy sidecar).
+L'OAuth est géré automatiquement par le proxy (PKCE + callback) — l'utilisateur
+ouvre juste l'URL affichée dans `podman logs`.
 
 > Détails du câblage → [`docs/reseau.md`](docs/reseau.md) · secrets & login →
 > [`docs/authentification.md`](docs/authentification.md) · accès web →
@@ -96,26 +98,45 @@ Claude voit un MCP « local », mais l'OAuth et les tokens vivent dans B, hors d
 ```
 agent-airlock/
 ├── bin/
-│   ├── claude-sandbox.sh          # launcher (alias `claude`) : pull + réseau + sidecars + run -it
-│   └── claude-doctor.sh           # diagnostic complet (infra + isolation + auth)
+│   ├── agent-sandbox.sh          # launcher générique : profil → build si absent → réseau → sidecars → run
+│   ├── agent-doctor.sh           # diagnostic complet (infra + isolation + auth)
+│   ├── agent-import-auth.sh      # importe un login (auth.json) fait côté hôte → volume (sélectif)
+│   ├── agent-import-config.sh    # seed la config hôte (settings/agents/skills…) → volume (opt-in)
+│   └── agent-mcp-wire.sh         # câble les serveurs MCP du mcp.json hôte sur le sidecar
+├── lib/
+│   └── profiles.sh               # helpers profils (list/load/select/resolve/ensure-image)
+├── profiles/
+│   ├── claude/                   # profil harness (oauth) — voir docs/profils.md
+│   │   ├── profile.env             # variables du harness (bin, config-dir, volume, auth…)
+│   │   ├── install.sh              # installe le binaire du harness dans l'image
+│   │   ├── allowlist.conf          # domaines de sortie autorisés (allowlist egress du profil)
+│   │   └── config/mcp.json         # bundle config seedé (MCP, skills, commandes, plugins)
+│   ├── pi/                       # profil harness pi (apikey) — provider-agnostic
+│   └── opencode/                 # profil harness opencode (apikey)
+├── providers/                    # catalogue de providers (clé + domaine egress couplés)
+│   ├── anthropic.env  openai.env  google.env  deepseek.env
+│   └── openrouter.env groq.env    mistral.env xai.env
 ├── containers/
-│   ├── claude/
-│   │   ├── Containerfile           # image A : node + Claude Code + mise + socat
-│   │   ├── entrypoint.sh           # seed config · mise install · hooks · lance claude
-│   │   ├── config/mcp.json         # MCP déclarés (socat → 10.89.0.11:9000)
+│   ├── base/
+│   │   ├── Containerfile           # image socle : node + mise + socat + git + user agent
+│   │   ├── entrypoint.sh           # générique : seed config · mise install · hooks · lance $HARNESS_BIN
 │   │   └── git-hooks-template/     # hooks neutres (anti-évasion)
+│   ├── harness/
+│   │   └── Containerfile           # base + install.sh + bundle config (contexte = profiles/<name>)
 │   └── mcp-remote/
-│       ├── Containerfile           # image B : node + mcp-remote + socat
-│       ├── entrypoint.sh           # 1 socat TCP-LISTEN → mcp-remote par serveur
-│       └── servers.d/
-│           └── example.env.sample  # modèle de serveur MCP OAuth (copier en <nom>.env)
+│       ├── Containerfile           # image sidecar MCP : Node.js proxy (Bearer token injection)
+│       ├── entrypoint.sh           # 1 node proxy.js par serveur déclaré dans servers.d/*.env
+│       ├── proxy.js                # proxy HTTP minimal (~90 lignes)
+│       ├── servers.d/
+│       │   └── example.env.sample # modèle de serveur MCP (NAME/URL/PORT)
+│       └── servers.d-proxy/       # (généré par agent-mcp-wire.sh, gitignoré)
 ├── egress/
-│   └── squid.conf                  # allowlist de sortie du conteneur A
+│   └── squid.base.conf             # socle commun du proxy (ports + deny) ; l'allowlist vient du profil
 ├── Makefile                        # build/push des images
 └── docs/                           # architecture + guides (voir docs/README.md)
 ```
 
-Réglages centraux (registry, IP, ports, volumes) : en-tête de `bin/claude-sandbox.sh`.
+Réglages centraux (registry, IP, ports, volumes) : en-tête de `bin/agent-sandbox.sh`.
 
 ---
 
@@ -145,11 +166,14 @@ git clone <ce-repo> ~/agent-airlock
 cd ~/agent-airlock
 
 # 3. Construire les images (tant qu'il n'y a pas de registry d'équipe)
-make build
+make build          # base + harness claude + sidecars ; ou laisse le launcher builder à la volée
 
 # 4. Alias dans ton shell rc (~/.zshrc)
-alias claude='~/agent-airlock/bin/claude-sandbox.sh'
-alias claude-doctor='~/agent-airlock/bin/claude-doctor.sh'
+alias claude='~/agent-airlock/bin/agent-sandbox.sh --profile claude'
+alias agent-doctor='~/agent-airlock/bin/agent-doctor.sh'
+# Variante multi-harness : définir un défaut sans figer d'alias
+#   export AGENT_PROFILE=claude        # « toujours ce harness »
+#   alias agent='~/agent-airlock/bin/agent-sandbox.sh'   # --profile X override ; --choose force le menu
 
 # 5. Premier lancement (dans un repo SOUS $HOME, pas /tmp)
 cd ~/code/mon-projet
@@ -164,7 +188,7 @@ claude          # → login abonnement au 1er run (flow « coller le code »)
 ## Vérifier la config
 
 ```sh
-claude-doctor          # ou: ~/agent-airlock/bin/claude-doctor.sh
+agent-doctor          # ou: ~/agent-airlock/bin/agent-doctor.sh
 ```
 
 Contrôle en un coup (16 checks) : machine podman, **horloge VM** (dérive → logout OAuth), images, réseau `internal=true dns=false`,
@@ -181,6 +205,7 @@ Depuis une session Claude en cours : `/status` (compte, modèle), `/mcp` (serveu
 | Doc | Contenu |
 |---|---|
 | [`docs/architecture.md`](docs/architecture.md) | Modèle de menace, décisions de design |
+| [`docs/profils.md`](docs/profils.md) | Multi-harness : profils, résolution, ajouter un harness (pi, opencode…) |
 | [`docs/reseau.md`](docs/reseau.md) | Réseau interne, DNS, IP statiques, tunnel MCP socat |
 | [`docs/acces-web.md`](docs/acces-web.md) | WebSearch / WebFetch / MCP : ce que Claude peut fetcher |
 | [`docs/authentification.md`](docs/authentification.md) | Login abonnement, resync horloge, volumes |
@@ -205,7 +230,7 @@ Depuis une session Claude en cours : `/status` (compte, modèle), `/mcp` (serveu
 - **`mise install` × egress** : ajouter les registries (npm, mise, github) à l'allowlist si
   installation d'outils au runtime.
 - **Audit trail MCP** : viser une MCP gateway centralisée (réponse à incident).
-- **Skills/plugins communs** : dossiers à peupler dans l'image (`/opt/claude-dist`).
+- **Skills/plugins communs** : dossiers à peupler dans l'image (`/opt/dist`).
 - **Utilisateurs non-ingénieurs** : le flux (podman, clone, build) reste trop technique.
 
 ---
