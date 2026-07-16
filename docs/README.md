@@ -1,61 +1,61 @@
 # Documentation — agent-airlock
 
-Guides pour **utiliser, étendre et contribuer** au sandbox.
+Guides for **using, extending, and contributing** to the sandbox.
 
-## Comprendre
-- [`architecture.md`](architecture.md) — modèle de menace, schémas, décisions de design.
-- [`profils.md`](profils.md) — support multi-harness : profils, résolution, ajouter un harness.
-- [`reseau.md`](reseau.md) — réseau interne, DNS, IP statiques, tunnel MCP socat.
-- [`acces-web.md`](acces-web.md) — WebSearch / WebFetch / MCP : ce que Claude peut fetcher.
-- [`authentification.md`](authentification.md) — login abonnement, resync horloge, volumes.
-- Le [README](../README.md) — vue d'ensemble + installation.
+## Understand
+- [`architecture.md`](architecture.md) — threat model, diagrams, design decisions.
+- [`profiles.md`](profiles.md) — multi-harness support: profiles, resolution, adding a harness.
+- [`network.md`](network.md) — internal network, DNS, static IPs, MCP socat tunnel.
+- [`web-access.md`](web-access.md) — WebSearch / WebFetch / MCP: what Claude can fetch.
+- [`authentication.md`](authentication.md) — subscription login, clock resync, volumes.
+- The [README](../README.md) — overview + installation.
 
-## Étendre
-- [`profils.md`](profils.md) — **ajouter un harness** (pi, opencode…) = créer un profil.
-- [`ajouter-un-mcp.md`](ajouter-un-mcp.md) — brancher un serveur MCP (via le conteneur B).
-- [`ajouter-un-skill.md`](ajouter-un-skill.md) — ajouter un skill commun à l'équipe.
-- [`ajouter-une-commande.md`](ajouter-une-commande.md) — ajouter une slash-command / un plugin.
-- [`allowlist-egress.md`](allowlist-egress.md) — autoriser un domaine de sortie.
-- [`build-et-images.md`](build-et-images.md) — build, tag, registry d'équipe.
+## Extend
+- [`profiles.md`](profiles.md) — **adding a harness** (pi, opencode…) = creating a profile.
+- [`add-mcp.md`](add-mcp.md) — connecting an MCP server (via container B).
+- [`add-skill.md`](add-skill.md) — adding a shared skill for the team.
+- [`add-command.md`](add-command.md) — adding a slash-command / plugin.
+- [`egress-allowlist.md`](egress-allowlist.md) — authorizing an egress domain.
+- [`build-and-images.md`](build-and-images.md) — build, tag, team registry.
 
-## Exploiter
-- [`onboarding.md`](onboarding.md) — installer le sandbox sur une nouvelle machine.
-- [`troubleshooting.md`](troubleshooting.md) — dépannage.
+## Operate
+- [`onboarding.md`](onboarding.md) — installing the sandbox on a new machine.
+- [`troubleshooting.md`](troubleshooting.md) — troubleshooting.
 
-## Contribuer
-- [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — workflow, conventions, checklist PR.
+## Contribute
+- [`../CONTRIBUTING.md`](../CONTRIBUTING.md) — workflow, conventions, PR checklist.
 
 ---
 
-## 🧭 Où va ma modif, et comment l'appliquer ?
+## 🧭 Where Does My Change Go, and How Do I Apply It?
 
-Point clé : **deux mécanismes** de mise à jour selon le fichier touché.
+Key point: **two update mechanisms** depending on which file is touched.
 
-| Ce que tu changes | Fichier / dossier | Mécanisme | Pour l'appliquer |
+| What you change | File / directory | Mechanism | How to apply |
 |---|---|---|---|
-| Domaine autorisé en sortie | `profiles/<name>/allowlist.conf` | rendu runtime + bind-mount | redémarrer le sidecar egress |
-| Serveur MCP | `containers/mcp-remote/servers.d/*.env` | bind-mount (runtime) | redémarrer le sidecar mcp-remote |
-| MCP déclaré côté harness | `profiles/<name>/config/` | **cuit dans l'image** | `make build-harness PROFILE=<name>` |
-| Skill / commande / plugin | `profiles/<name>/config/…` | **cuit dans l'image** | `make build-harness PROFILE=<name>` |
-| Nouveau harness | `profiles/<name>/` (4-5 fichiers) | profil | `make build-harness PROFILE=<name>` · voir [`profils.md`](profils.md) |
-| Entrypoint / Containerfile | `containers/*/` | **cuit dans l'image** | `make build-*` |
-| Launcher / doctor | `bin/*.sh` | script hôte | rien (effet immédiat) |
+| Allowed egress domain | `profiles/<name>/allowlist.conf` | runtime render + bind-mount | restart the egress sidecar |
+| MCP server | `containers/mcp-remote/servers.d/*.env` | bind-mount (runtime) | restart the mcp-remote sidecar |
+| Harness-side MCP declaration | `profiles/<name>/config/` | **baked into image** | `make build-harness PROFILE=<name>` |
+| Skill / command / plugin | `profiles/<name>/config/…` | **baked into image** | `make build-harness PROFILE=<name>` |
+| New harness | `profiles/<name>/` (4-5 files) | profile | `make build-harness PROFILE=<name>` · see [`profiles.md`](profiles.md) |
+| Entrypoint / Containerfile | `containers/*/` | **baked into image** | `make build-*` |
+| Launcher / doctor | `bin/*.sh` | host script | nothing (immediate effect) |
 
-**Redémarrer un sidecar** (recréé au prochain `claude`) :
+**Restart a sidecar** (recreated on next `claude`):
 ```sh
-podman rm -f egress-proxy      # ou mcp-remote
+podman rm -f egress-proxy      # or mcp-remote
 ```
 
-**Rebuild l'image Claude** (config embarquée) :
+**Rebuild the Claude image** (embedded config):
 ```sh
 make build-harness PROFILE=claude
 ```
 
-> Rappel : `config/` est copié dans l'image (`/opt/dist/config`) puis recopié dans
-> `~/.claude` à chaque run par l'entrypoint — **sans** écraser `.credentials.json`. Donc une
-> modif de skill/commande/mcp.json nécessite un rebuild pour être embarquée.
+> Reminder: `config/` is copied into the image (`/opt/dist/config`) then re-copied into
+> `~/.claude` on each run by the entrypoint — **without** overwriting `.credentials.json`.
+> So a skill/command/mcp.json change requires a rebuild to be embedded.
 
-Après toute modif, valide avec :
+After any change, validate with:
 ```sh
 agent-doctor
 ```

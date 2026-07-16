@@ -1,12 +1,12 @@
-# Contribuer
+# Contributing
 
-Merci de contribuer au sandbox ! Ce projet enferme un agent en qui on n'a pas confiance —
-donc **toute contribution touchant au réseau, aux volumes ou aux privilèges doit être relue
-avec le modèle de menace en tête** ([`docs/architecture.md`](docs/architecture.md)).
+Thanks for contributing to the sandbox! This project locks up an untrusted agent — so
+**any contribution touching networking, volumes, or privileges must be reviewed with the
+threat model in mind** ([`docs/architecture.md`](docs/architecture.md)).
 
-## Prérequis
+## Prerequisites
 
-Voir le [README](README.md) : Podman + `make build` + alias. Vérifie ton install :
+See the [README](README.md): Podman + `make build` + alias. Verify your setup:
 
 ```sh
 agent-doctor
@@ -14,56 +14,56 @@ agent-doctor
 
 ## Workflow
 
-1. **Branche** depuis `main` : `git checkout -b feat/mon-sujet`.
-2. **Modifie** en suivant le [tableau « où va ma modif »](docs/README.md#-où-va-ma-modif-et-comment-lappliquer)
-   (bind-mount vs rebuild image).
-3. **Teste** : rebuild si besoin, relance `claude` dans un vrai repo, et **`agent-doctor`
-   doit rester vert** (surtout isolation réseau + allowlist).
-4. **Commit** en [Conventional Commits](#convention-de-commit).
-5. **PR** avec la [checklist](#checklist-pr) remplie.
+1. **Branch** off `main`: `git checkout -b feat/my-topic`.
+2. **Make changes** following the [“where does my change go” table](docs/README.md#-where-does-my-change-go-and-how-do-i-apply-it)
+   (bind-mount vs. rebuild image).
+3. **Test**: rebuild if needed, relaunch `claude` in a real repo, and **`agent-doctor`
+   must stay green** (especially network isolation + allowlist).
+4. **Commit** using [Conventional Commits](#commit-convention).
+5. **PR** with the [checklist](#pr-checklist) filled out.
 
-## Convention de commit
+## Commit Convention
 
-Format `type(scope): sujet` — sujet ≤ ~70 car., à l'impératif, sans point final.
+Format `type(scope): subject` — subject ≤ ~70 chars, imperative, no trailing period.
 
 | type | usage |
 |---|---|
-| `feat` | nouvelle capacité (skill, commande, MCP, option launcher) |
-| `fix` | correction |
+| `feat` | new capability (skill, command, MCP, launcher option) |
+| `fix` | bugfix |
 | `docs` | documentation |
-| `harden` | durcissement sécurité / réduction de surface |
-| `chore` | tooling, build, ménage |
+| `harden` | security hardening / surface reduction |
+| `chore` | tooling, build, housekeeping |
 
-Exemples : `feat(mcp): ajoute le serveur linear`, `harden(egress): retire le wildcard github`.
+Examples: `feat(mcp): add linear server`, `harden(egress): remove github wildcard`.
 
-Le corps explique le **pourquoi** (pas le quoi). Pour toute modif réseau/sécu, justifie.
+The body explains the **why** (not the what). For any network/security change, justify it.
 
-## Checklist PR
+## PR Checklist
 
-- [ ] `agent-doctor` **vert** (isolation, allowlist, sidecars).
-- [ ] Aucun secret commité (tokens, `.env` réels, clés) — cf. `.gitignore`.
-- [ ] Modif réseau (allowlist / port publié) **justifiée** dans le commit + a minima
-      possible (sous-domaine exact plutôt que wildcard).
-- [ ] Un nouveau MCP a un `ALLOWED_TOOLS` restrictif (pas de tool destructeur exposé).
-- [ ] Doc à jour si le comportement change (guides dans `docs/`).
-- [ ] Pas d'élévation de privilèges dans les conteneurs (pas de `--privileged`, pas de
-      montage hôte superflu, l'agent reste user `claude`).
+- [ ] `agent-doctor` **green** (isolation, allowlist, sidecars).
+- [ ] No secrets committed (tokens, real `.env` files, keys) — see `.gitignore`.
+- [ ] Network change (allowlist / published port) **justified** in the commit + as minimal
+      as possible (exact subdomain rather than wildcard).
+- [ ] A new MCP has a restrictive `ALLOWED_TOOLS` (no destructive tool exposed).
+- [ ] Docs up to date if behavior changes (guides in `docs/`).
+- [ ] No privilege escalation in containers (no `--privileged`, no unnecessary host mounts,
+      agent stays as `claude` user).
 
-## Principes de design (à ne pas casser)
+## Design Principles (Do Not Break)
 
-- **Le conteneur A n'a jamais internet direct** — uniquement via le proxy egress.
-- **Les credentials ne vivent jamais dans A** : login abonnement dans `agent-home-claude`, tokens
-  MCP dans `agent-mcp-auth` (monté seulement dans B).
-- **Allowlist par défaut fermée** : on ajoute au cas par cas, jamais de « allow all ».
-- **Réduire la surface du canal MCP** via `ALLOWED_TOOLS`.
-- **Rien d'exécuté par l'agent ne doit s'échapper** (hooks git neutralisés, volumes maîtrisés).
+- **Container A never has direct internet** — only via the egress proxy.
+- **Credentials never live in A**: subscription login in `agent-home-claude`, MCP
+  tokens in `agent-mcp-auth` (mounted only in B).
+- **Allowlist is closed by default**: add on a case-by-case basis, never "allow all".
+- **Reduce MCP channel surface** via `ALLOWED_TOOLS`.
+- **Nothing executed by the agent must escape** (git hooks neutralized, volumes controlled).
 
-## Où mettre quoi
+## Where to Put What
 
 | Contribution | Guide |
 |---|---|
-| Serveur MCP | [`docs/ajouter-un-mcp.md`](docs/ajouter-un-mcp.md) |
-| Skill | [`docs/ajouter-un-skill.md`](docs/ajouter-un-skill.md) |
-| Slash-command / plugin | [`docs/ajouter-une-commande.md`](docs/ajouter-une-commande.md) |
-| Domaine de sortie | [`docs/allowlist-egress.md`](docs/allowlist-egress.md) |
-| Build / images / registry | [`docs/build-et-images.md`](docs/build-et-images.md) |
+| MCP server | [`docs/add-mcp.md`](docs/add-mcp.md) |
+| Skill | [`docs/add-skill.md`](docs/add-skill.md) |
+| Slash-command / plugin | [`docs/add-command.md`](docs/add-command.md) |
+| Egress domain | [`docs/egress-allowlist.md`](docs/egress-allowlist.md) |
+| Build / images / registry | [`docs/build-and-images.md`](docs/build-and-images.md) |

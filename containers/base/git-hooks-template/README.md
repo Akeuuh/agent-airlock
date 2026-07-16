@@ -1,8 +1,8 @@
-# Template de git hooks NEUTRE monté dans le conteneur Claude.
+# NEUTRAL git hooks template mounted in the Claude container.
 #
-# core.hooksPath pointe ici (voir containers/base/entrypoint.sh) pour que les
-# hooks créés/modifiés par l'agent NE SOIENT PAS persistés sur l'hôte : cela ferme
-# une voie d'évasion du sandbox (un hook malveillant s'exécuterait au prochain
-# `git commit` de l'utilisateur sur sa machine).
+# core.hooksPath points here (see containers/base/entrypoint.sh) so that
+# hooks created/modified by the agent are NOT persisted on the host: this closes
+# a sandbox escape path (a malicious hook would execute on the user's next
+# `git commit` on their machine).
 #
-# Laisser ce dossier vide (aucun hook actif).
+# Keep this directory empty (no active hooks).

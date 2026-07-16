@@ -8,11 +8,11 @@ critique.
 
 Exemples de vulnérabilités dans le périmètre :
 
-- Contournement de l'isolation réseau (accès internet direct sans passer par le proxy)
-- Bypass de l'allowlist egress (accès à un domaine non autorisé)
-- Fuite de secrets hôte vers le conteneur Claude
-- Escalade de privilèges dans le conteneur (accès root, montage hôte non prévu)
-- Injection de commandes dans le launcher ou l'entrypoint
+- Network isolation bypass (direct internet access without going through the proxy)
+- Egress allowlist bypass (access to an unauthorized domain)
+- Host secret leakage into the Claude container
+- Privilege escalation in the container (root access, unexpected host mounts)
+- Command injection in the launcher or entrypoint
 
 ## Reporting a Vulnerability
 
@@ -26,7 +26,7 @@ sera publié avant toute divulgation publique (coordinated disclosure).
 
 ## Out of Scope
 
-- Attaques nécessitant un accès physique ou root sur la machine hôte
-- Vulnérabilités dans les dépendances tierces (Podman, Squid, Claude Code) — reporter
-  directement aux mainteneurs concernés
-- Améliorations générales de hardening (ouvrir une issue normale ou une PR)
+- Attacks requiring physical access or root on the host machine
+- Vulnerabilities in third-party dependencies (Podman, Squid, Claude Code) — report
+  directly to the relevant maintainers
+- General hardening improvements (open a normal issue or PR)
