@@ -7,14 +7,12 @@ edit_uri: edit/main/docs/
 theme:
   name: material
   palette:
-    # Dark mode (system preference)
     - scheme: slate
       primary: indigo
       accent: indigo
       toggle:
         icon: material/brightness-4
         name: Dark mode
-    # Light mode
     - scheme: default
       primary: indigo
       accent: indigo
@@ -25,6 +23,7 @@ theme:
     - navigation.instant
     - navigation.tracking
     - navigation.tabs
+    - navigation.sections
     - navigation.indexes
     - search.suggest
     - search.highlight
@@ -32,6 +31,11 @@ theme:
     - content.code.annotate
 
 markdown_extensions:
+  - attr_list
+  - md_in_html
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
   - pymdownx.highlight:
       anchor_linenums: true
   - pymdownx.inlinehilite
@@ -50,21 +54,25 @@ markdown_extensions:
 plugins:
   - search
 
+extra_css:
+  - stylesheets/extra.css
+
 nav:
-  - Home: README.md
-  - Understand:
-      - Architecture: docs/architecture.md
-      - Profiles: docs/profiles.md
-      - Network & MCP: docs/network.md
-      - Web Access: docs/web-access.md
-      - Authentication: docs/authentication.md
-  - Extend:
-      - Add MCP Server: docs/add-mcp.md
-      - Add Skill: docs/add-skill.md
-      - Add Command: docs/add-command.md
-      - Egress Allowlist: docs/egress-allowlist.md
-      - Build & Images: docs/build-and-images.md
-  - Operate:
-      - Onboarding: docs/onboarding.md
-      - Troubleshooting: docs/troubleshooting.md
-  - Contribute: CONTRIBUTING.md
+  - Home: index.md
+  - Quick Start: get-started.md
+  - How-To Guides:
+      - Add MCP Server: add-mcp.md
+      - Add Skill: add-skill.md
+      - Add Command: add-command.md
+      - Egress Allowlist: egress-allowlist.md
+      - Build & Images: build-and-images.md
+      - Onboard a Teammate: onboarding.md
+  - Reference:
+      - Architecture: architecture.md
+      - Profiles: profiles.md
+      - Network & MCP Tunnel: network.md
+      - Web Access: web-access.md
+      - Authentication: authentication.md
+  - Help:
+      - Troubleshooting: troubleshooting.md
+  - Contribute: contribute.md
