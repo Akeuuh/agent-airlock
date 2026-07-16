@@ -1,53 +1,53 @@
-# Onboarding — installer le sandbox sur une nouvelle machine
+# Onboarding — Installing the Sandbox on a New Machine
 
-Le sandbox est **par machine** : chaque personne construit ses images localement et se
-connecte avec **son propre** abonnement Claude (ses credentials restent dans *ses* volumes,
-rien n'est partagé).
+The sandbox is **per-machine**: each person builds their images locally and connects with
+**their own** Claude subscription (their credentials stay in *their* volumes, nothing
+is shared).
 
-> ℹ️ Tant qu'aucun **registry d'équipe** n'est configuré (`AGENT_SANDBOX_REGISTRY`), les
-> images ne sont pas poussées : chacun fait `make build` après le clone. Le launcher tente un
-> `podman pull` puis retombe sur le cache local si le pull échoue — c'est normal en mode
-> « localhost ». Voir [`build-et-images.md`](build-et-images.md) pour le registry d'équipe.
+> ℹ️ As long as no **team registry** is configured (`AGENT_SANDBOX_REGISTRY`), images
+> are not pushed: everyone runs `make build` after cloning. The launcher tries a
+> `podman pull` then falls back to the local cache if the pull fails — that's normal in
+> "localhost" mode. See [`build-and-images.md`](build-and-images.md) for the team registry.
 
-## Étapes
+## Steps
 
 ```sh
-# 1. Podman + VM (provider Apple natif, aucune dépendance externe)
+# 1. Podman + VM (native Apple provider, no external dependencies)
 brew install podman
 podman machine init --provider applehv && podman machine start
 
-# 2. Cloner + builder les images (~5 min la première fois)
-git clone <ce-repo> ~/agent-airlock
+# 2. Clone + build images (~5 min first time)
+git clone <this-repo> ~/agent-airlock
 cd ~/agent-airlock
 make build
 
-# 3. Alias dans le shell rc
+# 3. Alias in shell rc
 echo "alias claude='~/agent-airlock/bin/agent-sandbox.sh'" >> ~/.zshrc
 echo "alias agent-doctor='~/agent-airlock/bin/agent-doctor.sh'" >> ~/.zshrc
 source ~/.zshrc
 
-# 4. Vérifier
-agent-doctor      # tout doit être vert sauf « auth » (pas encore loggué)
+# 4. Verify
+agent-doctor      # should be all green except "auth" (not yet logged in)
 
-# 5. Se connecter (son propre compte)
-cd ~/un-repo-sous-home
-claude             # login abonnement au 1er run → persisté dans SON volume agent-home-claude
+# 5. Log in (own account)
+cd ~/a-repo-under-home
+claude             # subscription login on 1st run → persisted in THEIR agent-home-claude volume
 ```
 
 ## Checklist
 
-- [ ] Repo de travail **sous `$HOME`** (un mount depuis `/tmp` échoue — cf.
+- [ ] Working repo **under `$HOME`** (a mount from `/tmp` fails — see
       [`troubleshooting.md`](troubleshooting.md)).
-- [ ] `agent-doctor` : réseau interne, isolation, allowlist → verts.
-- [ ] Login effectué une fois (le doctor passe « auth » au vert ensuite —
-      cf. [`authentification.md`](authentification.md)).
-- [ ] Pour les **MCP** : chacun fait son propre flow OAuth (stocké dans *son*
-      `agent-mcp-auth`). Copier les `servers.d/<nom>.env` nécessaires (non versionnés) —
-      cf. [`ajouter-un-mcp.md`](ajouter-un-mcp.md).
+- [ ] `agent-doctor`: internal network, isolation, allowlist → green.
+- [ ] Login done once (doctor shows "auth" green afterwards —
+      see [`authentication.md`](authentication.md)).
+- [ ] For **MCPs**: each person does their own OAuth flow (stored in *their*
+      `agent-mcp-auth`). Copy the necessary `servers.d/<name>.env` files (not versioned)
+      — see [`add-mcp.md`](add-mcp.md).
 
-## Quand il y aura un registry d'équipe
+## When There's a Team Registry
 
-`make push` une fois, puis les collègues n'ont plus qu'à
-`export AGENT_SANDBOX_REGISTRY=<registry>` — le launcher `podman pull` l'image commune à
-chaque lancement (skills/plugins toujours à jour), plus besoin de `make build` local.
-Détails : [`build-et-images.md`](build-et-images.md).
+`make push` once, then teammates only need
+`export AGENT_SANDBOX_REGISTRY=<registry>` — the launcher `podman pull`s the shared image
+at each launch (skills/plugins always up to date), no more local `make build` needed.
+Details: [`build-and-images.md`](build-and-images.md).

@@ -1,67 +1,67 @@
 # agent-airlock
 
-Faire tourner **Claude Code** en mode autonome (`--dangerously-skip-permissions`) dans un
-sandbox **Podman**, sans exposer la machine à l'exfiltration de secrets ni à la destruction
-de données.
+Run **Claude Code** in autonomous mode (`--dangerously-skip-permissions`) inside a
+**Podman** sandbox, without exposing the host to secret exfiltration or data destruction.
 
-> 📐 Modèle de menace + décisions d'archi : [`docs/architecture.md`](docs/architecture.md)
-> 📚 Guides & doc technique : [`docs/`](docs/README.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md)
+> 📐 Threat model + architecture decisions: [`docs/architecture.md`](docs/architecture.md)
+> 📚 Guides & technical docs: [`docs/`](docs/README.md) · [`CONTRIBUTING.md`](CONTRIBUTING.md)
 
-## Sommaire
-- [Pourquoi](#pourquoi)
+## Table of Contents
+- [Why](#why)
 - [Architecture](#architecture)
-- [Structure du repo](#structure-du-repo)
-- [Prérequis](#prérequis)
+- [Repo Structure](#repo-structure)
+- [Prerequisites](#prerequisites)
 - [Installation](#installation)
-- [Vérifier la config](#vérifier-la-config)
-- [Pour aller plus loin](#pour-aller-plus-loin)
-- [TODO / limites connues](#todo--limites-connues)
+- [Verify the Setup](#verify-the-setup)
+- [Going Further](#going-further)
+- [TODO / Known Limitations](#todo--known-limitations)
 
 ---
 
-## Pourquoi
+## Why
 
-Deux hypothèses de travail (détaillées dans le [doc d'archi](docs/architecture.md)) :
+Two working assumptions (detailed in the [architecture doc](docs/architecture.md)):
 
-1. **Lethal trifecta** (Simon Willison) : un agent qui combine *données privées* +
-   *contenu non fiable* (issues, pages web, code non relu) + *canal de sortie* peut être
-   détourné par prompt injection pour exfiltrer des données.
-2. **Loi de Murphy de l'agent** : on suppose que l'agent finira par causer tous les dégâts
-   qu'il est *capable* de causer (injection **ou** simple erreur).
+1. **Lethal trifecta** (Simon Willison): an agent combining *private data* +
+   *untrusted content* (issues, web pages, unreviewed code) + *an output channel* can be
+   hijacked via prompt injection to exfiltrate data.
+2. **Agent Murphy's Law**: assume the agent will eventually cause all damage it is
+   *capable* of causing (injection **or** simple mistake).
 
-Conséquence : on ne fait pas confiance à l'agent, on l'enferme dans une boîte d'où il ne
-peut ni exfiltrer de secrets, ni détruire de données. **Le code, lui, n'est pas une donnée
-sensible** (versionné par git) → il est simplement monté en volume.
+Consequence: don't trust the agent — lock it in a box where it can neither exfiltrate
+secrets nor destroy data. **Source code is not considered sensitive data** (versioned by
+git) → it is simply bind-mounted as a volume.
 
 ---
 
 ## Architecture
 
-Trois conteneurs, un **réseau interne sans route internet** (`agent-net`). Seuls les
-sidecars B et C ont une seconde patte vers internet ; le conteneur Claude n'en a **aucune**.
+Three containers, an **internal network with no internet route** (`agent-net`). Only
+sidecars B and C have a second network interface to the internet; the Claude container
+has **none**.
 
 ```mermaid
 flowchart TB
-    subgraph host["🖥️ Hôte (Mac)"]
+    subgraph host["🖥️ Host (Mac)"]
         launcher["alias claude<br/>bin/agent-sandbox.sh"]
-        code[("~/code/mon-projet")]
+        code[("~/code/my-project")]
         vh[("volume agent-home-claude<br/>🔐 login")]
-        vm[("volume agent-mcp-auth<br/>🔐 tokens OAuth")]
+        vm[("volume agent-mcp-auth<br/>🔐 OAuth tokens")]
     end
 
-    subgraph net["🔒 agent-net · réseau interne (--internal --disable-dns · 10.89.0.0/24)"]
-        A["<b>A · claude</b><br/>Claude Code + mise<br/>❌ aucun internet direct"]
+    subgraph net["🔒 agent-net · internal network (--internal --disable-dns · 10.89.0.0/24)"]
+        A["<b>A · claude</b><br/>Claude Code + mise<br/>❌ no direct internet"]
         C["<b>C · egress-proxy</b><br/>10.89.0.10<br/>squid + allowlist"]
-        B["<b>B · mcp-remote</b><br/>10.89.0.11<br/>OAuth + tokens ICI"]
+        B["<b>B · mcp-remote</b><br/>10.89.0.11<br/>OAuth + tokens HERE"]
     end
 
     anthropic["api.anthropic.com<br/>platform.claude.com<br/>claude.ai"]
-    mcpsrv["serveurs MCP<br/>distants"]
+    mcpsrv["remote MCP<br/>servers"]
 
     launcher -. "run -it" .-> A
     code -->|bind mount /workspace| A
-    vh -. monté dans A .-> A
-    vm -. monté dans B seulement .-> B
+    vh -. mounted in A .-> A
+    vm -. mounted in B only .-> B
 
     A ==>|"HTTP(S)_PROXY"| C
     A ==>|"socat STDIO→TCP :9000"| B
@@ -76,75 +76,75 @@ flowchart TB
     class anthropic,mcpsrv ext;
 ```
 
-| # | Conteneur | Rôle | Internet | Secrets |
+| # | Container | Role | Internet | Secrets |
 |---|-----------|------|----------|---------|
-| **A** | `claude` | Claude Code + mise. Le code est monté ici. | ❌ direct — **uniquement** via proxy C | aucun |
-| **B** | `mcp-remote` / `mcp-proxy` | Proxy MCP avec injection Bearer (tokens pré-importés) | ✅ (serveurs MCP) | **tokens MCP** (sidecar only) |
-| **C** | `egress-proxy` | Proxy squid, allowlist de sortie | ✅ (allowlist) | — |
+| **A** | `claude` | Claude Code + mise. Code is mounted here. | ❌ direct — **only** via proxy C | none |
+| **B** | `mcp-remote` / `mcp-proxy` | MCP proxy with Bearer injection (pre-imported tokens) | ✅ (MCP servers) | **MCP tokens** (sidecar only) |
+| **C** | `egress-proxy` | Squid proxy, egress allowlist | ✅ (allowlist) | — |
 
-Idée centrale : **les credentials ne sont jamais dans le conteneur qui exécute l'agent.**
-Le harness voit un MCP « local » (streamable-http vers le proxy sidecar).
-L'OAuth est géré automatiquement par le proxy (PKCE + callback) — l'utilisateur
-ouvre juste l'URL affichée dans `podman logs`.
+Core idea: **credentials never live in the container running the agent.**
+The harness sees a "local" MCP (streamable-http to the sidecar proxy).
+OAuth is handled automatically by the proxy (PKCE + callback) — the user simply
+opens the URL displayed in `podman logs`.
 
-> Détails du câblage → [`docs/reseau.md`](docs/reseau.md) · secrets & login →
-> [`docs/authentification.md`](docs/authentification.md) · accès web →
-> [`docs/acces-web.md`](docs/acces-web.md).
+> Wiring details → [`docs/network.md`](docs/network.md) · secrets & login →
+> [`docs/authentication.md`](docs/authentication.md) · web access →
+> [`docs/web-access.md`](docs/web-access.md).
 
 ---
 
-## Structure du repo
+## Repo Structure
 
 ```
 agent-airlock/
 ├── bin/
-│   ├── agent-sandbox.sh          # launcher générique : profil → build si absent → réseau → sidecars → run
-│   ├── agent-doctor.sh           # diagnostic complet (infra + isolation + auth)
-│   ├── agent-import-auth.sh      # importe un login (auth.json) fait côté hôte → volume (sélectif)
-│   ├── agent-import-config.sh    # seed la config hôte (settings/agents/skills…) → volume (opt-in)
-│   └── agent-mcp-wire.sh         # câble les serveurs MCP du mcp.json hôte sur le sidecar
+│   ├── agent-sandbox.sh          # generic launcher: profile → build if missing → network → sidecars → run
+│   ├── agent-doctor.sh           # full diagnostics (infra + isolation + auth)
+│   ├── agent-import-auth.sh      # imports host-side login (auth.json) → volume (selective)
+│   ├── agent-import-config.sh    # seeds host config (settings/agents/skills…) → volume (opt-in)
+│   └── agent-mcp-wire.sh         # wires host mcp.json MCP servers onto the sidecar
 ├── lib/
-│   └── profiles.sh               # helpers profils (list/load/select/resolve/ensure-image)
+│   └── profiles.sh               # profile helpers (list/load/select/resolve/ensure-image)
 ├── profiles/
-│   ├── claude/                   # profil harness (oauth) — voir docs/profils.md
-│   │   ├── profile.env             # variables du harness (bin, config-dir, volume, auth…)
-│   │   ├── install.sh              # installe le binaire du harness dans l'image
-│   │   ├── allowlist.conf          # domaines de sortie autorisés (allowlist egress du profil)
-│   │   └── config/mcp.json         # bundle config seedé (MCP, skills, commandes, plugins)
-│   ├── pi/                       # profil harness pi (apikey) — provider-agnostic
-│   └── opencode/                 # profil harness opencode (apikey)
-├── providers/                    # catalogue de providers (clé + domaine egress couplés)
+│   ├── claude/                   # harness profile (oauth) — see docs/profiles.md
+│   │   ├── profile.env             # harness variables (bin, config-dir, volume, auth…)
+│   │   ├── install.sh              # installs the harness binary in the image
+│   │   ├── allowlist.conf          # allowed egress domains (profile egress allowlist)
+│   │   └── config/mcp.json         # seeded config bundle (MCP, skills, commands, plugins)
+│   ├── pi/                       # pi harness profile (apikey) — provider-agnostic
+│   └── opencode/                 # opencode harness profile (apikey)
+├── providers/                    # provider catalog (key + egress domain, coupled)
 │   ├── anthropic.env  openai.env  google.env  deepseek.env
 │   └── openrouter.env groq.env    mistral.env xai.env
 ├── containers/
 │   ├── base/
-│   │   ├── Containerfile           # image socle : node + mise + socat + git + user agent
-│   │   ├── entrypoint.sh           # générique : seed config · mise install · hooks · lance $HARNESS_BIN
-│   │   └── git-hooks-template/     # hooks neutres (anti-évasion)
+│   │   ├── Containerfile           # base image: node + mise + socat + git + agent user
+│   │   ├── entrypoint.sh           # generic: seed config · mise install · hooks · launch $HARNESS_BIN
+│   │   └── git-hooks-template/     # neutral hooks (anti-escape)
 │   ├── harness/
-│   │   └── Containerfile           # base + install.sh + bundle config (contexte = profiles/<name>)
+│   │   └── Containerfile           # base + install.sh + config bundle (context = profiles/<name>)
 │   └── mcp-remote/
-│       ├── Containerfile           # image sidecar MCP : Node.js proxy (Bearer token injection)
-│       ├── entrypoint.sh           # 1 node proxy.js par serveur déclaré dans servers.d/*.env
-│       ├── proxy.js                # proxy HTTP minimal (~90 lignes)
+│       ├── Containerfile           # MCP sidecar image: Node.js proxy (Bearer token injection)
+│       ├── entrypoint.sh           # 1 node proxy.js per server declared in servers.d/*.env
+│       ├── proxy.js                # minimal HTTP proxy (~90 lines)
 │       ├── servers.d/
-│       │   └── example.env.sample # modèle de serveur MCP (NAME/URL/PORT)
-│       └── servers.d-proxy/       # (généré par agent-mcp-wire.sh, gitignoré)
+│       │   └── example.env.sample # MCP server template (NAME/URL/PORT)
+│       └── servers.d-proxy/       # (generated by agent-mcp-wire.sh, gitignored)
 ├── egress/
-│   └── squid.base.conf             # socle commun du proxy (ports + deny) ; l'allowlist vient du profil
-├── Makefile                        # build/push des images
-└── docs/                           # architecture + guides (voir docs/README.md)
+│   └── squid.base.conf             # shared proxy base (ports + deny); allowlist comes from profile
+├── Makefile                        # image build/push
+└── docs/                           # architecture + guides (see docs/README.md)
 ```
 
-Réglages centraux (registry, IP, ports, volumes) : en-tête de `bin/agent-sandbox.sh`.
+Central settings (registry, IPs, ports, volumes): header of `bin/agent-sandbox.sh`.
 
 ---
 
-## Prérequis
+## Prerequisites
 
-- **macOS** (Apple Silicon testé) — le principe marche aussi sous Linux, sans VM.
+- **macOS** (Apple Silicon tested) — the principle also works on Linux, without a VM.
 - **Homebrew**
-- **Podman** (la VM est gérée par `podman machine`)
+- **Podman** (VM managed by `podman machine`)
 
 ---
 
@@ -152,90 +152,90 @@ Réglages centraux (registry, IP, ports, volumes) : en-tête de `bin/agent-sandb
 
 ```mermaid
 flowchart LR
-    P["brew install podman<br/>machine init/start"] --> G["git clone"] --> M["make build"] --> AL["alias claude"] --> R["claude<br/>(1er run = login)"]
+    P["brew install podman<br/>machine init/start"] --> G["git clone"] --> M["make build"] --> AL["alias claude"] --> R["claude<br/>(1st run = login)"]
 ```
 
 ```sh
-# 1. Podman + VM (provider Apple natif, aucune dépendance externe)
+# 1. Podman + VM (native Apple provider, no external dependencies)
 brew install podman
 podman machine init --provider applehv
 podman machine start
 
-# 2. Récupérer le repo
-git clone <ce-repo> ~/agent-airlock
+# 2. Clone the repo
+git clone <this-repo> ~/agent-airlock
 cd ~/agent-airlock
 
-# 3. Construire les images (tant qu'il n'y a pas de registry d'équipe)
-make build          # base + harness claude + sidecars ; ou laisse le launcher builder à la volée
+# 3. Build images (until there's a team registry)
+make build          # base + claude harness + sidecars; or let the launcher build on the fly
 
-# 4. Alias dans ton shell rc (~/.zshrc)
+# 4. Alias in your shell rc (~/.zshrc)
 alias claude='~/agent-airlock/bin/agent-sandbox.sh --profile claude'
 alias agent-doctor='~/agent-airlock/bin/agent-doctor.sh'
-# Variante multi-harness : définir un défaut sans figer d'alias
-#   export AGENT_PROFILE=claude        # « toujours ce harness »
-#   alias agent='~/agent-airlock/bin/agent-sandbox.sh'   # --profile X override ; --choose force le menu
+# Multi-harness variant: set a default without hardcoding an alias
+#   export AGENT_PROFILE=claude        # "always this harness"
+#   alias agent='~/agent-airlock/bin/agent-sandbox.sh'   # --profile X overrides; --choose forces the menu
 
-# 5. Premier lancement (dans un repo SOUS $HOME, pas /tmp)
-cd ~/code/mon-projet
-claude          # → login abonnement au 1er run (flow « coller le code »)
+# 5. First run (in a repo UNDER $HOME, not /tmp)
+cd ~/code/my-project
+claude          # → subscription login on 1st run ("paste the code" flow)
 ```
 
-> 🧑‍🤝‍🧑 Installer sur la machine d'un collègue : guide dédié
+> 🧑‍🤝‍🧑 Installing on a teammate's machine: dedicated guide
 > [`docs/onboarding.md`](docs/onboarding.md).
 
 ---
 
-## Vérifier la config
+## Verify the Setup
 
 ```sh
-agent-doctor          # ou: ~/agent-airlock/bin/agent-doctor.sh
+agent-doctor          # or: ~/agent-airlock/bin/agent-doctor.sh
 ```
 
-Contrôle en un coup (16 checks) : machine podman, **horloge VM** (dérive → logout OAuth), images, réseau `internal=true dns=false`,
-sidecars, **blocage internet direct**, **allowlist egress** (anthropic/claude.ai/platform
-autorisés, reste refusé), tunnel MCP, et **persistance du login**.
+One-shot check (16 checks): podman machine, **VM clock** (drift → OAuth logout), images,
+network `internal=true dns=false`, sidecars, **direct internet blocked**, **egress allowlist**
+(anthropic/claude.ai/platform allowed, rest denied), MCP tunnel, and **login persistence**.
 
-Depuis une session Claude en cours : `/status` (compte, modèle), `/mcp` (serveurs MCP),
-`/doctor` (santé interne).
+From a running Claude session: `/status` (account, model), `/mcp` (MCP servers),
+`/doctor` (internal health).
 
 ---
 
-## Pour aller plus loin
+## Going Further
 
-| Doc | Contenu |
+| Doc | Content |
 |---|---|
-| [`docs/architecture.md`](docs/architecture.md) | Modèle de menace, décisions de design |
-| [`docs/profils.md`](docs/profils.md) | Multi-harness : profils, résolution, ajouter un harness (pi, opencode…) |
-| [`docs/reseau.md`](docs/reseau.md) | Réseau interne, DNS, IP statiques, tunnel MCP socat |
-| [`docs/acces-web.md`](docs/acces-web.md) | WebSearch / WebFetch / MCP : ce que Claude peut fetcher |
-| [`docs/authentification.md`](docs/authentification.md) | Login abonnement, resync horloge, volumes |
-| [`docs/ajouter-un-mcp.md`](docs/ajouter-un-mcp.md) | Brancher un serveur MCP |
-| [`docs/ajouter-un-skill.md`](docs/ajouter-un-skill.md) | Ajouter un skill commun |
-| [`docs/ajouter-une-commande.md`](docs/ajouter-une-commande.md) | Slash-commands & plugins |
-| [`docs/allowlist-egress.md`](docs/allowlist-egress.md) | Autoriser un domaine de sortie |
-| [`docs/build-et-images.md`](docs/build-et-images.md) | Build, images, registry d'équipe |
-| [`docs/onboarding.md`](docs/onboarding.md) | Installer sur une nouvelle machine |
-| [`docs/troubleshooting.md`](docs/troubleshooting.md) | Dépannage |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Workflow, conventions, checklist PR |
+| [`docs/architecture.md`](docs/architecture.md) | Threat model, design decisions |
+| [`docs/profiles.md`](docs/profiles.md) | Multi-harness: profiles, resolution, adding a harness (pi, opencode…) |
+| [`docs/network.md`](docs/network.md) | Internal network, DNS, static IPs, MCP socat tunnel |
+| [`docs/web-access.md`](docs/web-access.md) | WebSearch / WebFetch / MCP: what Claude can fetch |
+| [`docs/authentication.md`](docs/authentication.md) | Subscription login, clock resync, volumes |
+| [`docs/add-mcp.md`](docs/add-mcp.md) | Connecting an MCP server |
+| [`docs/add-skill.md`](docs/add-skill.md) | Adding a shared skill |
+| [`docs/add-command.md`](docs/add-command.md) | Slash-commands & plugins |
+| [`docs/egress-allowlist.md`](docs/egress-allowlist.md) | Authorizing an egress domain |
+| [`docs/build-and-images.md`](docs/build-and-images.md) | Build, images, team registry |
+| [`docs/onboarding.md`](docs/onboarding.md) | Installing on a new machine |
+| [`docs/troubleshooting.md`](docs/troubleshooting.md) | Troubleshooting |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md) | Workflow, conventions, PR checklist |
 
 ---
 
-## TODO / limites connues
+## TODO / Known Limitations
 
-- **Registry d'équipe** : pousser l'image commune (`make push`) pour éviter le `make build`
-  local chez chaque collègue et distribuer skills/plugins à jour automatiquement.
-- **Enregistrement MCP côté Claude** : `mcp.json` est embarqué mais pas encore enregistré au
-  bon endroit (`claude mcp add --scope user` à l'entrypoint) + un vrai serveur dans
+- **Team registry**: push the shared image (`make push`) to avoid local `make build`
+  for every teammate and distribute updated skills/plugins automatically.
+- **Claude-side MCP registration**: `mcp.json` is embedded but not yet registered in the
+  right location (`claude mcp add --scope user` at entrypoint) + a real server in
   `servers.d/`.
-- **`mise install` × egress** : ajouter les registries (npm, mise, github) à l'allowlist si
-  installation d'outils au runtime.
-- **Audit trail MCP** : viser une MCP gateway centralisée (réponse à incident).
-- **Skills/plugins communs** : dossiers à peupler dans l'image (`/opt/dist`).
-- **Utilisateurs non-ingénieurs** : le flux (podman, clone, build) reste trop technique.
+- **`mise install` × egress**: add registries (npm, mise, github) to the allowlist if
+  installing tools at runtime.
+- **MCP audit trail**: aim for a centralized MCP gateway (incident response).
+- **Shared skills/plugins**: directories to populate in the image (`/opt/dist`).
+- **Non-engineer users**: the flow (podman, clone, build) remains too technical.
 
 ---
 
-## Licence
+## License
 
-[MIT](LICENSE) — © 2026 Axel Leclercq. Fais-en ce que tu veux, garde la mention de copyright,
-aucune garantie.
+[MIT](LICENSE) — © 2026 Axel Leclercq. Do what you want with it, keep the copyright notice,
+no warranty.

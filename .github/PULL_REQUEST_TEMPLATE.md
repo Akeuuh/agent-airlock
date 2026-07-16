@@ -1,20 +1,20 @@
 ## Description
 
-<!-- Explique le problème résolu ou la fonctionnalité ajoutée. Le "pourquoi", pas le "quoi". -->
+<!-- Explain the problem solved or the feature added. The "why", not the "what". -->
 
-## Type de changement
+## Change Type
 
-- [ ] `feat` — nouvelle capacité
-- [ ] `fix` — correction de bug
-- [ ] `harden` — durcissement sécurité / réduction de surface
+- [ ] `feat` — new capability
+- [ ] `fix` — bugfix
+- [ ] `harden` — security hardening / surface reduction
 - [ ] `docs` — documentation
-- [ ] `chore` — tooling, build, ménage
+- [ ] `chore` — tooling, build, housekeeping
 
-## Checklist PR
+## PR Checklist
 
-- [ ] `agent-doctor` **vert** (isolation réseau, allowlist, sidecars)
-- [ ] Aucun secret commité (tokens, `.env` réels, clés)
-- [ ] Modif réseau (allowlist / port publié) **justifiée** dans le commit et aussi restrictive que possible (sous-domaine exact, pas de wildcard)
-- [ ] Un nouveau MCP a un `ALLOWED_TOOLS` restrictif (aucun tool destructeur exposé)
-- [ ] Doc à jour si le comportement change
-- [ ] Pas d'élévation de privilèges dans les conteneurs (`--privileged` absent, pas de montage hôte superflu, l'agent reste user `claude`)
+- [ ] `agent-doctor` **green** (network isolation, allowlist, sidecars)
+- [ ] No secrets committed (tokens, real `.env` files, keys)
+- [ ] Network change (allowlist / published port) **justified** in the commit and as restrictive as possible (exact subdomain, no wildcard)
+- [ ] A new MCP has a restrictive `ALLOWED_TOOLS` (no destructive tool exposed)
+- [ ] Docs up to date if behavior changes
+- [ ] No privilege escalation in containers (`--privileged` absent, no unnecessary host mounts, agent stays as `claude` user)

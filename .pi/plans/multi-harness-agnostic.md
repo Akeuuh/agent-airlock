@@ -135,7 +135,7 @@ section 8 branche oauth (credentials) / apikey (résolution des clés). Validé 
 
 - Livrer 3 profils : `claude` (iso-comportement), `pi`, `opencode`. ✅ **LIVRÉ**
   (`pi` v0.80.6 et `opencode` buildés/validés ; auth apikey).
-- Doc « ajouter un harness » (créer un profil = 4-5 fichiers). ✅ `docs/profils.md`.
+- Doc « ajouter un harness » (créer un profil = 4-5 fichiers). ✅ `docs/profiles.md`.
 - MAJ `architecture.md` (section 4bis) + README (arbo + table) + `docs/README.md`.
 - Durcissement : `containers/harness/Containerfile` lance `install.sh` via `bash`
   (indépendant du bit exécutable).
@@ -155,7 +155,7 @@ section 8 branche oauth (credentials) / apikey (résolution des clés). Validé 
 3. Ajout du profil `pi` en premier harness de validation (auth apikey → exerce le chemin non-Claude). ✅ **LIVRÉ** (jalon 3).
 4. Phase 6 + 7 → doctor + docs + profil `opencode`. ✅ **LIVRÉ** (jalon 3) : doctor
    entièrement profile-driven ; profils `pi` + `opencode` buildés/validés ;
-   `docs/profils.md` (guide multi-harness) ; MAJ archi/README/index.
+   `docs/profiles.md` (guide multi-harness) ; MAJ archi/README/index.
 
 ## Décisions à trancher avant de coder
 
