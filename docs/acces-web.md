@@ -1,7 +1,7 @@
 # Accès web de Claude
 
 La seule sortie internet du conteneur A passe par le **proxy squid** (conteneur C), en
-**allowlist stricte** (`egress/squid.conf`). Domaines autorisés par défaut (Claude Code v2,
+**allowlist stricte** (`profiles/<name>/allowlist.conf`, ex. `profiles/claude/`). Domaines autorisés par défaut (Claude Code v2,
 cf. doc réseau officielle) :
 
 | Domaine | Pourquoi |

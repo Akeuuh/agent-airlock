@@ -1,7 +1,7 @@
 # Ajouter une slash-command (et notion de plugin)
 
 Comme les skills, les **commandes personnalisées** sont embarquées dans l'image A et
-distribuées à l'équipe via `containers/claude/config/`. L'entrypoint les copie dans
+distribuées à l'équipe via `profiles/claude/config/`. L'entrypoint les copie dans
 `~/.claude/` à chaque run.
 
 Une slash-command Claude Code = un fichier markdown dans `~/.claude/commands/<nom>.md`.
@@ -12,10 +12,10 @@ L'invoquer se fait avec `/<nom>` dans la session.
 ## 1. Créer la commande
 
 ```sh
-mkdir -p containers/claude/config/commands
+mkdir -p profiles/claude/config/commands
 ```
 
-`containers/claude/config/commands/review.md` :
+`profiles/claude/config/commands/review.md` :
 
 ```markdown
 ---
@@ -38,7 +38,7 @@ Reste concis. Ne modifie rien sans mon accord.
 ## 2. Embarquer & tester
 
 ```sh
-make build-claude
+make build-harness PROFILE=claude
 cd ~/mon-repo && claude
 # dans la session :
 /review
@@ -49,7 +49,7 @@ Le fichier doit être présent : `~/.claude/commands/review.md`.
 ## 3. Commiter
 
 ```sh
-git add containers/claude/config/commands/review.md
+git add profiles/claude/config/commands/review.md
 git commit -m "feat(commands): ajoute /review"
 ```
 
@@ -61,10 +61,10 @@ Claude Code sait charger des **plugins** (bundles de skills + commandes + config
 marketplace. Deux façons de les distribuer ici :
 
 1. **Fichiers embarqués** (recommandé pour un set stable d'équipe) : place le contenu du
-   plugin sous `containers/claude/config/` (ex. `plugins/…`) — il sera copié dans `~/.claude`
+   plugin sous `profiles/claude/config/` (ex. `plugins/…`) — il sera copié dans `~/.claude`
    comme le reste. Rebuild de l'image nécessaire.
 2. **Marketplace distante** : si tu pointes vers une marketplace en ligne (GitHub…), pense à
-   **ajouter son domaine à l'allowlist** (`egress/squid.conf`, cf.
+   **ajouter son domaine à l'allowlist** (`profiles/<name>/allowlist.conf`, cf.
    [`allowlist-egress.md`](allowlist-egress.md)) sinon le fetch sera bloqué. `raw.githubusercontent.com`
    est déjà autorisé ; `github.com`/`objects.githubusercontent.com` ne le sont pas par défaut.
 
