@@ -1,0 +1,56 @@
+# ── Image BASE : socle commun à tous les harness ─────────────────────────────
+# node + socat + git + curl + mise + user `agent`. AUCUN harness ici : chaque
+# harness se construit PAR-DESSUS cette base via containers/harness/Containerfile
+# + profiles/<name>/install.sh.
+#
+# Base Debian **trixie** (glibc 2.41) et pas bookworm (2.36) : requis par rtk,
+# dont les builds Linux aarch64 exigent glibc >= 2.39 (voir bloc rtk plus bas).
+FROM node:22-trixie-slim
+
+# Outils système : socat (tunnel MCP), git, curl (installe mise), ripgrep + fd-find
+# (les harness type pi/opencode utilisent rg/fd pour la recherche de fichiers ;
+# pré-installés ici → pas de téléchargement runtime bloqué par l'egress. pi accepte
+# le binaire `fdfind` de Debian, pas besoin de le renommer en `fd`).
+# hadolint ignore=DL3008
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      socat git curl ca-certificates ripgrep fd-find \
+    && rm -rf /var/lib/apt/lists/*
+
+# rtk (Rust Token Killer) — proxy CLI LOCAL qui compresse la sortie des commandes
+# pour économiser des tokens (aucun réseau au run). Utilisé par le package pi
+# `pi-rtk-optimizer`, mais générique → dispo pour tous les harness. Version épinglée.
+# aarch64 : build gnu (glibc >= 2.39, fournie par trixie) ; x86_64 : build musl
+# statique (sans dépendance glibc). Pas de build musl aarch64 upstream à ce jour.
+ARG RTK_VERSION=v0.43.0
+# hadolint ignore=DL4006
+RUN set -eux; \
+    arch="$(uname -m)"; \
+    case "$arch" in \
+      aarch64) asset="rtk-aarch64-unknown-linux-gnu.tar.gz" ;; \
+      x86_64)  asset="rtk-x86_64-unknown-linux-musl.tar.gz" ;; \
+      *) echo "rtk: arch non supportée: $arch" >&2; exit 1 ;; \
+    esac; \
+    curl -fsSL "https://github.com/rtk-ai/rtk/releases/download/${RTK_VERSION}/${asset}" -o /tmp/rtk.tar.gz; \
+    tar -xzf /tmp/rtk.tar.gz -C /usr/local/bin rtk; \
+    rm -f /tmp/rtk.tar.gz; \
+    chmod +x /usr/local/bin/rtk; \
+    rtk --version
+
+# Entrypoint générique (copié en root avant de dropper les privilèges)
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh \
+    && useradd -ms /bin/bash agent
+
+# Template de git hooks NEUTRE (anti-évasion — voir git-hooks-template/README.md)
+COPY --chown=agent:agent git-hooks-template/ /home/agent/.git-hooks-template/
+
+USER agent
+
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# mise (gestionnaire d'outils déclaratif par repo)
+RUN curl -fsSL https://mise.run | sh
+ENV PATH="/home/agent/.local/bin:/home/agent/.local/share/mise/shims:${PATH}"
+
+WORKDIR /workspace
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
